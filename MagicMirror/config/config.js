@@ -51,21 +51,45 @@ let config = {
 		},
 		{
 			module: "calendar",
-			header: "US Holidays",
+			header: "Brīvdienas Latvijā",
 			position: "top_left",
 			config: {
 				calendars: [
 					{
 						fetchInterval: 7 * 24 * 60 * 60 * 1000,
 						symbol: "calendar-check",
-						url: "https://calendar.google.com/calendar/ical/en.lv%23holiday%40group.v.calendar.google.com/public/basic.ics"
+						url: "https://calendar.google.com/calendar/ical/lv.latvian%23holiday%40group.v.calendar.google.com/public/basic.ics"
 					}
 				]
 			}
 		},
 		{
+			module: "MMM-Namedays",
+			header: "Vārda diena",
+			position: "top_left",
+			config: {
+				useExtended: false,
+				prefix: ""
+			}
+		},
+		{
 			module: "compliments",
-			position: "lower_third"
+			position: "lower_third",
+			config: {
+				compliments: {
+					anytime: ["Sveiks!", "Kā sokās?", "Viss bumbās", "¯\_(ツ)_/¯", "ᕙ( ͡° ͜ʖ ͡°)ᕗ", "ಠ_ಠ"],
+					morning: ["Labrīt!", "Lai jauka diena!"],
+					afternoon: ["Izskaties lieliski!"],
+					evening: ["Kā pagāja diena?"]
+				}
+			}
+		},
+		{
+			module: "MMM-DailyVerse",
+			position: "lower_third",
+			config: {
+				mode: "daily"
+			}
 		},
 		{
 			module: "weather",
