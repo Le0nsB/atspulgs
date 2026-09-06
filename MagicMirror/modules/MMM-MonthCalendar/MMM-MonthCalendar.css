@@ -1,0 +1,52 @@
+.mmm-monthcalendar .mc-title {
+	font-size: 26px;
+	text-align: center;
+	margin-bottom: 12px;
+	letter-spacing: 1px;
+}
+
+.mmm-monthcalendar .mc-grid {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	gap: 6px;
+}
+
+.mmm-monthcalendar .mc-weekday {
+	text-align: center;
+	font-size: 14px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	padding-bottom: 4px;
+}
+
+.mmm-monthcalendar .mc-day {
+	min-height: 74px;
+	padding: 6px 6px 4px;
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.04);
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	overflow: hidden;
+}
+
+.mmm-monthcalendar .mc-empty {
+	background: transparent;
+}
+
+.mmm-monthcalendar .mc-today {
+	background: rgba(255, 255, 255, 0.16);
+	outline: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.mmm-monthcalendar .mc-num {
+	font-size: 17px;
+	font-weight: bold;
+	line-height: 1;
+}
+
+.mmm-monthcalendar .mc-names {
+	font-size: 11px;
+	line-height: 1.25;
+	word-break: break-word;
+}

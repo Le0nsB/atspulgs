@@ -1,0 +1,49 @@
+.mmm-weekweather .ww-row {
+	display: flex;
+	gap: 18px;
+	justify-content: center;
+	align-items: stretch;
+}
+
+.mmm-weekweather .ww-day {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	padding: 10px 14px;
+	border-radius: 10px;
+	min-width: 72px;
+}
+
+.mmm-weekweather .ww-today {
+	background: rgba(255, 255, 255, 0.08);
+}
+
+.mmm-weekweather .ww-name {
+	font-size: 18px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+}
+
+.mmm-weekweather .ww-date {
+	font-size: 14px;
+}
+
+.mmm-weekweather .ww-icon {
+	font-size: 34px;
+	margin: 6px 0;
+}
+
+.mmm-weekweather .ww-temp {
+	font-size: 18px;
+	white-space: nowrap;
+}
+
+.mmm-weekweather .ww-max {
+	color: #fff;
+}
+
+.mmm-weekweather .ww-pop {
+	font-size: 13px;
+	white-space: nowrap;
+}

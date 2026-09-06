@@ -113,6 +113,42 @@ let config = {
 			}
 		},
 		{
+			// Kreisā lapa (bulttaustiņš pa kreisi): visas nedēļas laika prognoze.
+			module: "MMM-WeekWeather",
+			position: "middle_center",
+			header: "Nedēļas laikapstākļi",
+			config: {
+				lat: 57.311886,
+				lon: 25.274975
+			}
+		},
+		{
+			// Labā lapa (bulttaustiņš pa labi): tekošā mēneša kalendārs ar vārda dienām.
+			module: "MMM-MonthCalendar",
+			position: "middle_center",
+			config: {}
+		},
+		{
+			// Lapu pārslēdzējs: kreisais/labais bulttaustiņš.
+			module: "MMM-Pages",
+			config: {
+				home: 1,
+				fixed: ["clock", "alert", "updatenotification"],
+				pages: [
+					["MMM-WeekWeather"],
+					[
+						"calendar",
+						"MMM-Namedays",
+						"compliments",
+						"MMM-DailyVerse",
+						"weather",
+						"newsfeed"
+					],
+					["MMM-MonthCalendar"]
+				]
+			}
+		},
+		{
 			module: "newsfeed",
 			position: "bottom_bar",
 			config: {
