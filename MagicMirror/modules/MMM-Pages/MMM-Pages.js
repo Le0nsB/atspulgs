@@ -4,6 +4,13 @@
  * pārslēgties starp vairākiem skatiem. Katrā lapā redzami tikai tie
  * moduļi, kas norādīti `pages` sarakstā; `fixed` moduļi redzami vienmēr.
  *
+ * Citi moduļi (piem. MMM-GestureNav) var pārslēgt lapas ar notifikācijām:
+ *   PAGES_NEXT              -> nākamā lapa
+ *   PAGES_PREV              -> iepriekšējā lapa
+ *   PAGES_HOME             -> sākuma lapa (config.home)
+ *   PAGES_GOTO  (payload=n) -> lapa ar indeksu n
+ * Pēc pārslēgšanās raida PAGE_CHANGED ar jauno indeksu.
+ *
  * Pilnībā lokāls, interneta pieslēgums nav vajadzīgs.
  */
 Module.register("MMM-Pages", {
@@ -39,10 +46,25 @@ Module.register("MMM-Pages", {
 		return wrapper;
 	},
 
-	notificationReceived (notification) {
-		if (notification === "DOM_OBJECTS_CREATED" || notification === "ALL_MODULES_STARTED") {
-			this.domReady = true;
-			this.updatePages();
+	notificationReceived (notification, payload) {
+		switch (notification) {
+			case "DOM_OBJECTS_CREATED":
+			case "ALL_MODULES_STARTED":
+				this.domReady = true;
+				this.updatePages();
+				break;
+			case "PAGES_NEXT":
+				this.changePage(1);
+				break;
+			case "PAGES_PREV":
+				this.changePage(-1);
+				break;
+			case "PAGES_HOME":
+				this.goToPage(this.config.home);
+				break;
+			case "PAGES_GOTO":
+				this.goToPage(payload);
+				break;
 		}
 	},
 
@@ -66,9 +88,19 @@ Module.register("MMM-Pages", {
 		} else {
 			next = Math.max(0, Math.min(total - 1, next));
 		}
+		this.applyPage(next);
+	},
 
-		if (next === this.curPage) return;
-		this.curPage = next;
+	goToPage (index) {
+		const total = this.config.pages.length;
+		const n = Number(index);
+		if (total === 0 || !Number.isInteger(n) || n < 0 || n >= total) return;
+		this.applyPage(n);
+	},
+
+	applyPage (index) {
+		if (index === this.curPage) return;
+		this.curPage = index;
 		this.updatePages();
 		this.sendNotification("PAGE_CHANGED", this.curPage);
 	},

@@ -129,11 +129,23 @@ let config = {
 			config: {}
 		},
 		{
-			// Lapu pārslēdzējs: kreisais/labais bulttaustiņš.
+			// Roku žestu navigācija (statiski žesti — rādi pirkstus un turi ~0,5 s).
+			// Vajag: moduļa mapē `npm install` UN palaist ar ELECTRON_ENABLE_GPU=1.
+			module: "MMM-GestureNav",
+			position: "bottom_right",
+			config: {
+				showPreview: true, // mazs kameras priekšskatījums (var izslēgt)
+				oneFinger: "PAGES_GOTO", oneFingerPayload: 0, // 1 pirksts -> nedēļas laiks
+				twoFingers: "PAGES_GOTO", twoFingersPayload: 2, // 2 pirksti -> mēneša kalendārs
+				openPalm: "PAGES_HOME" // atvērta plauksta -> sākums
+			}
+		},
+		{
+			// Lapu pārslēdzējs: kreisais/labais bulttaustiņš vai žesti (MMM-GestureNav).
 			module: "MMM-Pages",
 			config: {
 				home: 1,
-				fixed: ["clock", "alert", "updatenotification"],
+				fixed: ["clock", "alert", "updatenotification", "MMM-GestureNav"],
 				pages: [
 					["MMM-WeekWeather"],
 					[

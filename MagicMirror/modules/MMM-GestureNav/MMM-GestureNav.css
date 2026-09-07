@@ -1,0 +1,38 @@
+.mmm-gesturenav .gn-box {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.mmm-gesturenav .gn-vid {
+	position: relative;
+	width: 100%;
+	overflow: hidden;
+	border-radius: 8px;
+	background: #000;
+	opacity: 0.85;
+}
+
+/* Spoguļošana: apgriež gan video, gan uz tā zīmēto kanvu. */
+.mmm-gesturenav .gn-mirror {
+	transform: scaleX(-1);
+}
+
+.mmm-gesturenav .gn-video,
+.mmm-gesturenav .gn-canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.mmm-gesturenav .gn-canvas {
+	position: absolute;
+	inset: 0;
+}
+
+.mmm-gesturenav .gn-label {
+	text-align: center;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+}

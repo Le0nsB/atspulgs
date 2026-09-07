@@ -1,0 +1,43 @@
+.mmm-spotify {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	max-width: 340px;
+}
+
+.mmm-spotify-art {
+	width: 60px;
+	height: 60px;
+	border-radius: 4px;
+	object-fit: cover;
+	flex-shrink: 0;
+}
+
+.mmm-spotify-info {
+	min-width: 0;
+	flex: 1;
+}
+
+.mmm-spotify-title,
+.mmm-spotify-artist {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.mmm-spotify-bar {
+	margin-top: 6px;
+	height: 3px;
+	background: rgba(255, 255, 255, 0.25);
+	border-radius: 2px;
+	overflow: hidden;
+}
+
+.mmm-spotify-bar-fill {
+	height: 100%;
+	background: #fff;
+}
+
+.mmm-spotify-time {
+	margin-top: 3px;
+}

@@ -1,0 +1,16 @@
+{
+  "name": "mmm-gesturenav",
+  "version": "1.0.0",
+  "description": "Roku žestu navigācija MagicMirror lapām (MMM-Pages) — MediaPipe Hands, tīmekļa kamera.",
+  "main": "MMM-GestureNav.js",
+  "scripts": {
+    "setup": "node download-assets.mjs",
+    "postinstall": "node download-assets.mjs"
+  },
+  "keywords": ["MagicMirror", "gesture", "mediapipe", "hands"],
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^1.0.1"
+  }
+}

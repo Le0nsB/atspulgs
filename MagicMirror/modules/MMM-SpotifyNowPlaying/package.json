@@ -1,0 +1,10 @@
+{
+  "name": "mmm-spotifynowplaying",
+  "version": "1.0.0",
+  "description": "MagicMirror² modulis, kas rāda pašlaik atskaņoto Spotify dziesmu.",
+  "main": "MMM-SpotifyNowPlaying.js",
+  "scripts": {
+    "get-token": "node get-token.mjs"
+  },
+  "license": "MIT"
+}
