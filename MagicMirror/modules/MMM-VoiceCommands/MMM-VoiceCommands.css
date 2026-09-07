@@ -1,0 +1,133 @@
+/* MMM-VoiceCommands — ekrāna malu mirdzums + statusa rindiņa */
+
+#mmm-voicecommands-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 9999;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 320ms ease;
+	--vc-color: rgba(120, 180, 255, 0.55);
+}
+
+#mmm-voicecommands-overlay.vc-on {
+	opacity: 1;
+}
+
+#mmm-voicecommands-overlay .vc-edge {
+	position: absolute;
+}
+
+#mmm-voicecommands-overlay .vc-left {
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 22vw;
+	background: linear-gradient(to right, var(--vc-color), transparent);
+}
+
+#mmm-voicecommands-overlay .vc-right {
+	top: 0;
+	bottom: 0;
+	right: 0;
+	width: 22vw;
+	background: linear-gradient(to left, var(--vc-color), transparent);
+}
+
+#mmm-voicecommands-overlay .vc-top {
+	left: 0;
+	right: 0;
+	top: 0;
+	height: 16vh;
+	background: linear-gradient(to bottom, var(--vc-color), transparent);
+}
+
+#mmm-voicecommands-overlay .vc-bottom {
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: 16vh;
+	background: linear-gradient(to top, var(--vc-color), transparent);
+}
+
+/* Lēna pulsēšana, kamēr klausās */
+#mmm-voicecommands-overlay.vc-on .vc-edge {
+	animation: vc-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes vc-pulse {
+	0%,
+	100% {
+		opacity: 0.6;
+	}
+
+	50% {
+		opacity: 1;
+	}
+}
+
+/* Īss uzplaiksnījums pēc komandas / kļūdas */
+#mmm-voicecommands-overlay.vc-flash .vc-edge {
+	animation: vc-flash 900ms ease-out 1;
+}
+
+@keyframes vc-flash {
+	0% {
+		opacity: 1;
+	}
+
+	100% {
+		opacity: 0;
+	}
+}
+
+/* Statusa rindiņa modulī */
+.MMM-VoiceCommands .vc-wrapper {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 0.8rem;
+	line-height: 1;
+	opacity: 0.75;
+}
+
+.MMM-VoiceCommands .vc-wrapper.vc-empty {
+	display: none;
+}
+
+.MMM-VoiceCommands .vc-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: #777;
+	flex: 0 0 auto;
+}
+
+.MMM-VoiceCommands .vc-dot.live {
+	background: #7ab4ff;
+	box-shadow: 0 0 6px #7ab4ff;
+}
+
+.MMM-VoiceCommands .vc-dot.awaiting {
+	background: #7aff96;
+	box-shadow: 0 0 6px #7aff96;
+	animation: vc-blink 1s steps(1, end) infinite;
+}
+
+@keyframes vc-blink {
+	50% {
+		opacity: 0.25;
+	}
+}
+
+.MMM-VoiceCommands .vc-transcript {
+	opacity: 0.6;
+	font-style: italic;
+}
+
+.MMM-VoiceCommands .vc-role {
+	opacity: 0.5;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	font-size: 0.7rem;
+}

@@ -1,0 +1,13 @@
+{
+  "name": "mmm-voicecommands",
+  "version": "1.0.0",
+  "description": "Balss komandas latviešu valodā ar aktivācijas vārdu (Spoguli) un ekrāna malu mirdzumu.",
+  "main": "MMM-VoiceCommands.js",
+  "keywords": [
+    "MagicMirror",
+    "voice",
+    "latvian",
+    "speech"
+  ],
+  "license": "MIT"
+}
