@@ -73,14 +73,33 @@ let config = {
 			position: "top_left"
 		},
 		{
+			// Redzamais saraksts sākumlapā — tikai tuvākie svētki, lai neaizņem visu ekrānu.
 			module: "calendar",
 			header: "Brīvdienas Latvijā",
 			position: "top_left",
 			config: {
+				maximumEntries: 5,
+				maximumNumberOfDays: 400,
 				calendars: [
 					{
 						fetchInterval: 7 * 24 * 60 * 60 * 1000,
 						symbol: "calendar-check",
+						url: "https://calendar.google.com/calendar/ical/lv.latvian%23holiday%40group.v.calendar.google.com/public/basic.ics"
+					}
+				]
+			}
+		},
+		{
+			// Neredzams (nav position) — baro MMM-MonthCalendar ar visa gada svētkiem,
+			// ieskaitot jau pagājušos šī mēneša datumus.
+			module: "calendar",
+			config: {
+				broadcastPastEvents: true,
+				maximumEntries: 60,
+				maximumNumberOfDays: 400,
+				calendars: [
+					{
+						fetchInterval: 7 * 24 * 60 * 60 * 1000,
 						url: "https://calendar.google.com/calendar/ical/lv.latvian%23holiday%40group.v.calendar.google.com/public/basic.ics"
 					}
 				]
@@ -160,6 +179,8 @@ let config = {
 				showPreview: true, // mazs kameras priekšskatījums (var izslēgt)
 				oneFinger: "PAGES_GOTO", oneFingerPayload: 0, // 1 pirksts -> nedēļas laiks
 				twoFingers: "PAGES_GOTO", twoFingersPayload: 2, // 2 pirksti -> mēneša kalendārs
+				threeFingers: "PAGES_GOTO", threeFingersPayload: 3, // 3 pirksti -> ziņas detalizēti
+				fist: "NEWSDETAIL_NEXT", // ✊ dūre -> nākamā ziņa (detalizēto ziņu lapā)
 				openPalm: "PAGES_HOME" // atvērta plauksta -> sākums
 			}
 		},
@@ -179,6 +200,15 @@ let config = {
 			}
 		},
 		{
+			// Ziņas detalizēti — atsevišķa lapa (3 pirksti). Viena ziņa vienlaikus,
+			// pilns kopsavilkums; rotē pati, ✊ dūre = nākamā ziņa.
+			module: "MMM-NewsDetail",
+			position: "middle_center",
+			config: {
+				sourceLabel: "LSM.lv"
+			}
+		},
+		{
 			// Lapu pārslēdzējs: kreisais/labais bulttaustiņš vai žesti (MMM-GestureNav).
 			module: "MMM-Pages",
 			config: {
@@ -195,7 +225,8 @@ let config = {
 						"newsfeed",
 						"MMM-SpotifyNowPlaying"
 					],
-					["MMM-MonthCalendar"]
+					["MMM-MonthCalendar"],
+					["MMM-NewsDetail"]
 				]
 			}
 		},
@@ -211,6 +242,9 @@ let config = {
 				],
 				showSourceTitle: true,
 				showPublishDate: true,
+				// Virsraksts vienā rindā (ar ...), lai josla nemainītu augstumu
+				// un nepārbīdītu Spotify / citātu virs tās.
+				wrapTitle: false,
 				broadcastNewsFeeds: true,
 				broadcastNewsUpdates: true
 			}

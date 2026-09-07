@@ -3,6 +3,9 @@
  * Rāda tekošā mēneša kalendāru režģī. Katrā datumā parādīta arī tās
  * dienas vārda diena(s). Vārdu dati tiek ņemti no MMM-Namedays moduļa
  * (namedays.data.js) — pilnībā lokāli, internets nav vajadzīgs.
+ *
+ * Ja dienā ir svētki (notikums no `calendar` moduļa, piem. Brīvdienas
+ * Latvijā), tie tiek parādīti zem datuma.
  */
 Module.register("MMM-MonthCalendar", {
 	defaults: {
@@ -10,6 +13,8 @@ Module.register("MMM-MonthCalendar", {
 		useExtended: false, // saskaņā ar MMM-Namedays
 		maxNamesPerDay: 2,
 		showNamedays: true,
+		showHolidays: true, // rādīt svētkus no `calendar` moduļa
+		maxHolidaysPerDay: 2,
 		updateOnMidnight: true,
 		weekdayLabels: ["Pr", "Ot", "Tr", "Ce", "Pk", "Se", "Sv"],
 		monthLabels: [
@@ -29,7 +34,55 @@ Module.register("MMM-MonthCalendar", {
 	start () {
 		const data = window.MMM_NAMEDAYS_DATA || { traditional: {}, extended: {} };
 		this.namedays = this.config.useExtended ? data.extended : data.traditional;
+		this.holidays = {}; // "YYYY-M-D" -> [nosaukumi]
+		this.eventsBySender = {}; // katra `calendar` instance sūta savu sarakstu
 		if (this.config.updateOnMidnight) this.scheduleMidnightUpdate();
+	},
+
+	// Notikumi no `calendar` moduļa (Brīvdienas Latvijā u.c.). Var būt vairākas
+	// `calendar` instances — apvienojam visu un noņemam dublikātus.
+	notificationReceived (notification, payload, sender) {
+		if (notification !== "CALENDAR_EVENTS" || !this.config.showHolidays) return;
+		if (!Array.isArray(payload)) return;
+
+		const key = sender && sender.identifier ? sender.identifier : "default";
+		this.eventsBySender[key] = payload;
+
+		const DAY = 24 * 60 * 60 * 1000;
+		const isUtcMidnight = (ms) => {
+			const d = new Date(ms);
+			return d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+		};
+
+		const byDay = {};
+		Object.values(this.eventsBySender).forEach((events) => {
+			events.forEach((event) => {
+				if (!event || !event.startDate) return;
+				const startMs = Number(event.startDate);
+				let endMs = event.endDate ? Number(event.endDate) : startMs;
+				// iCal visas dienas notikumiem beigu datums ir IZSLĒDZOŠS
+				// (piem. svētdienas svētki beidzas pirmdienā 00:00), tāpēc
+				// atņemam vienu dienu, lai neieķeksētu nākamo dienu.
+				const allDay = event.fullDayEvent || (isUtcMidnight(startMs) && isUtcMidnight(endMs));
+				if (allDay && endMs > startMs) endMs -= DAY;
+
+				const start = new Date(startMs);
+				const last = new Date(endMs);
+				const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+				const lastDay = new Date(last.getFullYear(), last.getMonth(), last.getDate());
+				let guard = 0;
+				while (cursor <= lastDay && guard < 40) {
+					const dayKey = `${cursor.getFullYear()}-${cursor.getMonth()}-${cursor.getDate()}`;
+					const title = event.title || "";
+					const list = (byDay[dayKey] = byDay[dayKey] || []);
+					if (!list.includes(title)) list.push(title);
+					cursor.setDate(cursor.getDate() + 1);
+					guard++;
+				}
+			});
+		});
+		this.holidays = byDay;
+		this.updateDom(300);
 	},
 
 	scheduleMidnightUpdate () {
@@ -44,6 +97,10 @@ Module.register("MMM-MonthCalendar", {
 	namesFor (month, day) {
 		const key = `${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 		return this.namedays[key] || [];
+	},
+
+	holidaysFor (year, month, day) {
+		return this.holidays[`${year}-${month}-${day}`] || [];
 	},
 
 	getDom () {
@@ -90,6 +147,9 @@ Module.register("MMM-MonthCalendar", {
 			cell.className = "mc-day";
 			if (d === today) cell.className += " mc-today";
 
+			const holidays = this.config.showHolidays ? this.holidaysFor(year, month, d) : [];
+			if (holidays.length) cell.className += " mc-has-holiday";
+
 			const num = document.createElement("div");
 			num.className = "mc-num";
 			num.textContent = d;
@@ -103,6 +163,13 @@ Module.register("MMM-MonthCalendar", {
 					nd.textContent = names.slice(0, this.config.maxNamesPerDay).join(", ");
 					cell.appendChild(nd);
 				}
+			}
+
+			if (holidays.length) {
+				const hd = document.createElement("div");
+				hd.className = "mc-holiday";
+				hd.textContent = holidays.slice(0, this.config.maxHolidaysPerDay).join(" · ");
+				cell.appendChild(hd);
 			}
 
 			grid.appendChild(cell);

@@ -8,6 +8,7 @@
 .mmm-monthcalendar .mc-grid {
 	display: grid;
 	grid-template-columns: repeat(7, 1fr);
+	grid-auto-rows: 1fr;
 	gap: 6px;
 }
 
@@ -49,4 +50,24 @@
 	font-size: 11px;
 	line-height: 1.25;
 	word-break: break-word;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	overflow: hidden;
+}
+
+.mmm-monthcalendar .mc-has-holiday {
+	background: rgba(255, 214, 130, 0.12);
+}
+
+.mmm-monthcalendar .mc-holiday {
+	font-size: 10px;
+	line-height: 1.2;
+	color: #ffd782;
+	word-break: break-word;
+	margin-top: auto;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	overflow: hidden;
 }

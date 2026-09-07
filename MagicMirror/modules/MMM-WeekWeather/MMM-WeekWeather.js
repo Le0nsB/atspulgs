@@ -10,6 +10,8 @@ Module.register("MMM-WeekWeather", {
 		updateInterval: 60 * 60 * 1000, // reizi stundā
 		initialLoadDelay: 0,
 		showPrecipitationProbability: true,
+		showHourly: true, // rādīt šodienas prognozi pa stundām zem nedēļas
+		hourlyLabel: "Šodien pa stundām",
 		weekdayLabels: ["Pirmd.", "Otrd.", "Trešd.", "Ceturtd.", "Piektd.", "Sestd.", "Svētd."]
 	},
 
@@ -19,6 +21,7 @@ Module.register("MMM-WeekWeather", {
 
 	start () {
 		this.weekData = null;
+		this.hourlyData = null;
 		this.loaded = false;
 		this.error = null;
 		this.scheduleUpdate(this.config.initialLoadDelay);
@@ -60,6 +63,9 @@ Module.register("MMM-WeekWeather", {
 			start_date: this.ymd(monday),
 			end_date: this.ymd(sunday)
 		});
+		if (this.config.showHourly) {
+			params.set("hourly", "weather_code,temperature_2m,precipitation_probability,precipitation");
+		}
 		const url = `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
 
 		try {
@@ -67,6 +73,7 @@ Module.register("MMM-WeekWeather", {
 			if (!response.ok) throw new Error(`HTTP ${response.status}`);
 			const json = await response.json();
 			this.weekData = json.daily;
+			this.hourlyData = json.hourly || null;
 			this.loaded = true;
 			this.error = null;
 		} catch (error) {
@@ -160,6 +167,72 @@ Module.register("MMM-WeekWeather", {
 		});
 
 		wrapper.appendChild(row);
+
+		if (this.config.showHourly && this.hourlyData && Array.isArray(this.hourlyData.time)) {
+			wrapper.appendChild(this.buildHourly(todayYmd));
+		}
+
 		return wrapper;
+	},
+
+	// Šodienas prognoze pa stundām (00:00–23:00).
+	buildHourly (todayYmd) {
+		const h = this.hourlyData;
+		const section = document.createElement("div");
+		section.className = "ww-hourly";
+
+		const title = document.createElement("div");
+		title.className = "ww-hourly-title dimmed";
+		title.textContent = this.config.hourlyLabel;
+		section.appendChild(title);
+
+		const hrow = document.createElement("div");
+		hrow.className = "ww-hrow";
+
+		const localNow = new Date();
+		const nowKey = `${todayYmd}T${String(localNow.getHours()).padStart(2, "0")}`;
+
+		h.time.forEach((iso, i) => {
+			if (!iso.startsWith(todayYmd)) return;
+
+			const cell = document.createElement("div");
+			cell.className = "ww-hour";
+			if (iso.slice(0, 13) === nowKey) cell.className += " ww-now";
+
+			const hr = document.createElement("div");
+			hr.className = "ww-hr";
+			hr.textContent = iso.slice(11, 16);
+			cell.appendChild(hr);
+
+			const icon = document.createElement("span");
+			icon.className = `wi ${this.iconFor(h.weather_code?.[i])} ww-hicon`;
+			cell.appendChild(icon);
+
+			const temp = document.createElement("div");
+			temp.className = "ww-htemp";
+			temp.textContent = `${Math.round(h.temperature_2m?.[i])}°`;
+			cell.appendChild(temp);
+
+			const pop = h.precipitation_probability?.[i];
+			if (typeof pop === "number") {
+				const p = document.createElement("div");
+				p.className = "ww-hpop dimmed";
+				p.innerHTML = `<span class="wi wi-raindrop"></span> ${pop}%`;
+				cell.appendChild(p);
+			}
+
+			const mm = h.precipitation?.[i];
+			if (typeof mm === "number" && mm > 0) {
+				const pr = document.createElement("div");
+				pr.className = "ww-hprecip dimmed";
+				pr.textContent = `${mm.toFixed(1)} mm`;
+				cell.appendChild(pr);
+			}
+
+			hrow.appendChild(cell);
+		});
+
+		section.appendChild(hrow);
+		return section;
 	}
 });

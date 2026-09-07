@@ -2,8 +2,10 @@
  *
  * Roku žestu navigācija. Ar tīmekļa kameru + MediaPipe Hands atpazīst
  * STATISKUS žestus — rādi tik pirkstu, cik vajag, un turi nekustīgi ~0,5 s:
+ *   • dūre (0 pirksti) -> notifikācija (pēc noklusējuma neko nedara)
  *   • 1 pirksts        -> notifikācija (pēc noklusējuma PAGES_GOTO 0 = laiks)
  *   • 2 pirksti        -> notifikācija (pēc noklusējuma PAGES_GOTO 2 = kalendārs)
+ *   • 3 pirksti        -> notifikācija (pēc noklusējuma neko nedara)
  *   • atvērta plauksta -> notifikācija (pēc noklusējuma PAGES_HOME)
  * (Pēc izvēles var ieslēgt arī pāršķiršanu ar roku: swipeEnabled: true.)
  *
@@ -35,6 +37,7 @@ Module.register("MMM-GestureNav", {
 
 		// Ko darīt pie katra žesta. Notifikācija (+ neobligāts payload).
 		// null / "" = žests neko nedara. Pirksti = izstiepti rādītājs..mazais.
+		fist: null, fistPayload: undefined, // ✊ dūre (0 izstieptu pirkstu)
 		oneFinger: "PAGES_GOTO", oneFingerPayload: 0, // 1 pirksts -> nedēļas laiks (lapa 0)
 		twoFingers: "PAGES_GOTO", twoFingersPayload: 2, // 2 pirksti -> mēneša kalendārs (lapa 2)
 		threeFingers: null, threeFingersPayload: undefined,
@@ -248,6 +251,7 @@ Module.register("MMM-GestureNav", {
 	gestureFor (bucket) {
 		const c = this.config;
 		switch (bucket) {
+			case 0: return c.fist ? { notification: c.fist, payload: c.fistPayload } : null;
 			case 1: return c.oneFinger ? { notification: c.oneFinger, payload: c.oneFingerPayload } : null;
 			case 2: return c.twoFingers ? { notification: c.twoFingers, payload: c.twoFingersPayload } : null;
 			case 3: return c.threeFingers ? { notification: c.threeFingers, payload: c.threeFingersPayload } : null;
