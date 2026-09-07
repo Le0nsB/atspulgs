@@ -8,6 +8,29 @@
  * which will be converted to `config.js` while starting. For more information
  * see https://docs.magicmirror.builders/configuration/introduction.html#enviromnent-variables
  */
+// Privātās atslēgas nāk no config/secrets.js (netiek pievienots git).
+// Ja faila nav, moduļi, kuriem vajag atslēgas, vienkārši nerādīsies.
+// MagicMirror šo failu ielasa kā tekstu (bez īsta __dirname), tāpēc
+// mēģinām vairākus ceļus līdz secrets.js.
+let secrets = { spotify: {} };
+{
+	const path = require("node:path");
+	const base = (typeof global !== "undefined" && global.root_path) ? global.root_path : process.cwd();
+	const candidates = [
+		path.join(base, "config", "secrets.js"),
+		path.join(base, "secrets.js"),
+		"./secrets"
+	];
+	for (const candidate of candidates) {
+		try {
+			secrets = require(candidate);
+			break;
+		} catch (e) {
+			// mēģinām nākamo ceļu
+		}
+	}
+}
+
 let config = {
 	address: "localhost",	// Address to listen on, can be:
 							// - "localhost", "127.0.0.1", "::1" to listen on loopback interface
@@ -141,6 +164,21 @@ let config = {
 			}
 		},
 		{
+			// Rāda pašlaik atskaņoto Spotify dziesmu (skat. moduļa README.md par
+			// clientId/clientSecret/refreshToken iegūšanu).
+			module: "MMM-SpotifyNowPlaying",
+			position: "bottom_left",
+			config: {
+				clientId: secrets.spotify.clientId,
+				clientSecret: secrets.spotify.clientSecret,
+				refreshToken: secrets.spotify.refreshToken,
+				updateInterval: 15 * 1000,
+				showAlbumArt: true,
+				showProgress: true,
+				hideWhenNothingPlaying: true
+			}
+		},
+		{
 			// Lapu pārslēdzējs: kreisais/labais bulttaustiņš vai žesti (MMM-GestureNav).
 			module: "MMM-Pages",
 			config: {
@@ -154,7 +192,8 @@ let config = {
 						"compliments",
 						"MMM-DailyVerse",
 						"weather",
-						"newsfeed"
+						"newsfeed",
+						"MMM-SpotifyNowPlaying"
 					],
 					["MMM-MonthCalendar"]
 				]
