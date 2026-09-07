@@ -68,8 +68,10 @@ Module.register("MMM-WeekWeather", {
 		}
 		const url = `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
 
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 15000);
 		try {
-			const response = await fetch(url);
+			const response = await fetch(url, { signal: controller.signal });
 			if (!response.ok) throw new Error(`HTTP ${response.status}`);
 			const json = await response.json();
 			this.weekData = json.daily;
@@ -78,7 +80,9 @@ Module.register("MMM-WeekWeather", {
 			this.error = null;
 		} catch (error) {
 			Log.error("MMM-WeekWeather: neizdevās ielādēt laika datus", error);
-			this.error = error.message || "kļūda";
+			this.error = error.name === "AbortError" ? "noildze" : (error.message || "kļūda");
+		} finally {
+			clearTimeout(timeout);
 		}
 		this.updateDom(300);
 	},
@@ -169,13 +173,15 @@ Module.register("MMM-WeekWeather", {
 		wrapper.appendChild(row);
 
 		if (this.config.showHourly && this.hourlyData && Array.isArray(this.hourlyData.time)) {
-			wrapper.appendChild(this.buildHourly(todayYmd));
+			const hourly = this.buildHourly(todayYmd);
+			if (hourly) wrapper.appendChild(hourly);
 		}
 
 		return wrapper;
 	},
 
-	// Šodienas prognoze pa stundām (00:00–23:00).
+	// Šodienas prognoze pa stundām — no pašreizējās stundas līdz 23:00.
+	// Atgriež null, ja rādāmu stundu nav.
 	buildHourly (todayYmd) {
 		const h = this.hourlyData;
 		const section = document.createElement("div");
@@ -190,10 +196,13 @@ Module.register("MMM-WeekWeather", {
 		hrow.className = "ww-hrow";
 
 		const localNow = new Date();
-		const nowKey = `${todayYmd}T${String(localNow.getHours()).padStart(2, "0")}`;
+		const curHour = localNow.getHours();
+		const nowKey = `${todayYmd}T${String(curHour).padStart(2, "0")}`;
 
 		h.time.forEach((iso, i) => {
 			if (!iso.startsWith(todayYmd)) return;
+			// Tikai no pašreizējās stundas uz priekšu — pagājušās stundas neinteresē.
+			if (Number(iso.slice(11, 13)) < curHour) return;
 
 			const cell = document.createElement("div");
 			cell.className = "ww-hour";
@@ -232,6 +241,7 @@ Module.register("MMM-WeekWeather", {
 			hrow.appendChild(cell);
 		});
 
+		if (!hrow.childElementCount) return null;
 		section.appendChild(hrow);
 		return section;
 	}

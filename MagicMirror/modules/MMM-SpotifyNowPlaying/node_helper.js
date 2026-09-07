@@ -16,19 +16,32 @@ module.exports = NodeHelper.create({
 		this.accessTokenExpiry = 0;
 		this.timer = null;
 		this.lastPollAt = 0;
+		this.failures = 0; // secīgu kļūdu skaits -> eksponenciāla atkāpšanās
 	},
 
 	socketNotificationReceived (notification, payload) {
 		if (notification === "SPOTIFY_CONFIG") {
 			this.config = payload;
-			if (this.timer) clearInterval(this.timer);
-			this.poll();
-			this.timer = setInterval(() => this.poll(), Math.max(5000, this.config.updateInterval));
+			this.failures = 0;
+			this.poll(); // pats ieplāno nākamo vaicājumu
 		} else if (notification === "SPOTIFY_POLL_NOW") {
 			// Frontend ziņo, ka dziesma beigusies — vaicājam uzreiz (ar drošības
 			// slieksni, lai nepārslogotu API).
 			if (Date.now() - this.lastPollAt > 3000) this.poll();
 		}
+	},
+
+	// Nākamā vaicājuma intervāls: normāli `updateInterval`, bet pēc secīgām
+	// kļūdām (piem. nederīgs refreshToken) palielinām līdz 5 min, lai
+	// nespamotu Spotify API.
+	scheduleNext () {
+		if (!this.config) return;
+		clearTimeout(this.timer);
+		const base = Math.max(5000, this.config.updateInterval);
+		const delay = this.failures > 0
+			? Math.min(base * 2 ** Math.min(this.failures, 5), 5 * 60 * 1000)
+			: base;
+		this.timer = setTimeout(() => this.poll(), delay);
 	},
 
 	async getAccessToken () {
@@ -69,12 +82,15 @@ module.exports = NodeHelper.create({
 
 			if (res.status === 204 || res.status === 202) {
 				// Nekas neskan / nav aktīvas ierīces
+				this.failures = 0;
 				this.sendSocketNotification("SPOTIFY_PLAYING", null);
 				return;
 			}
 			if (res.status === 401) {
-				// Token beidzies — piespiedu atjaunošana nākamajā ciklā
+				// Token noraidīts — atjaunojam nākamajā ciklā, bet skaitām kā kļūdu,
+				// lai pastāvīga 401 cilpa atkāpjas, nevis spamo API.
 				this.accessToken = null;
+				this.failures += 1;
 				return;
 			}
 			if (!res.ok) {
@@ -84,11 +100,13 @@ module.exports = NodeHelper.create({
 			const data = await res.json();
 			const item = data && data.item;
 			if (!item) {
+				this.failures = 0;
 				this.sendSocketNotification("SPOTIFY_PLAYING", null);
 				return;
 			}
 
 			const images = (item.album && item.album.images) || [];
+			this.failures = 0;
 			this.sendSocketNotification("SPOTIFY_PLAYING", {
 				isPlaying: !!data.is_playing,
 				title: item.name || "",
@@ -99,8 +117,11 @@ module.exports = NodeHelper.create({
 				durationMs: item.duration_ms || 0
 			});
 		} catch (err) {
-			Log.error(`[MMM-SpotifyNowPlaying] ${err.message}`);
+			this.failures += 1;
+			Log.error(`[MMM-SpotifyNowPlaying] ${err.message} (kļūda #${this.failures})`);
 			this.sendSocketNotification("SPOTIFY_ERROR", err.message);
+		} finally {
+			this.scheduleNext();
 		}
 	}
 });

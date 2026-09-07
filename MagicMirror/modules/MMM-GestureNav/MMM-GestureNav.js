@@ -65,7 +65,6 @@ Module.register("MMM-GestureNav", {
 
 	start () {
 		this.status = "startē…";
-		this.lastActionLabel = "";
 		this.lastFireAt = 0;
 		this.gestureBucket = -1; // pašreiz noturētais žests (0..3, 5=plauksta, -1=nav)
 		this.gestureSince = 0; // kopš kura brīža bakets ir nemainīgs
@@ -344,8 +343,7 @@ Module.register("MMM-GestureNav", {
 		if (!action || !action.notification) return;
 		this.lastFireAt = typeof now === "number" ? now : performance.now();
 		const hasPayload = action.payload !== undefined && action.payload !== null;
-		this.lastActionLabel = `${tag} → ${action.notification}${hasPayload ? ` ${action.payload}` : ""}`;
-		this.setLabel(this.lastActionLabel);
+		this.setLabel(`${tag} → ${action.notification}${hasPayload ? ` ${action.payload}` : ""}`);
 		this.sendNotification(action.notification, action.payload);
 		if (this.config.debug) Log.log(`MMM-GestureNav -> ${action.notification}`, action.payload);
 	},

@@ -32,6 +32,11 @@ Module.register("MMM-MonthCalendar", {
 	},
 
 	start () {
+		if (this.config.showNamedays && !window.MMM_NAMEDAYS_DATA) {
+			Log.warn("MMM-MonthCalendar: nav ielādēti vārda dienu dati "
+				+ "(../MMM-Namedays/namedays.data.js). Vai MMM-Namedays ir instalēts? "
+				+ "Kalendārs rādīsies bez vārdiem.");
+		}
 		const data = window.MMM_NAMEDAYS_DATA || { traditional: {}, extended: {} };
 		this.namedays = this.config.useExtended ? data.extended : data.traditional;
 		this.holidays = {}; // "YYYY-M-D" -> [nosaukumi]

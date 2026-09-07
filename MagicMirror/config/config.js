@@ -18,18 +18,30 @@ let secrets = { spotify: {} };
 	const base = (typeof global !== "undefined" && global.root_path) ? global.root_path : process.cwd();
 	const candidates = [
 		path.join(base, "config", "secrets.js"),
-		path.join(base, "secrets.js"),
-		"./secrets"
+		path.join(base, "secrets.js")
 	];
+	let loaded = false;
 	for (const candidate of candidates) {
 		try {
 			secrets = require(candidate);
+			loaded = true;
 			break;
 		} catch (e) {
-			// mēģinām nākamo ceļu
+			// Fails nav šajā ceļā — mēģinām nākamo. Bet ja fails IR, tikai ar
+			// sintakses kļūdu, par to jāzina — citādi moduļi klusi pazūd.
+			if (e.code !== "MODULE_NOT_FOUND" || !String(e.message).includes(candidate)) {
+				console.warn(`config: neizdevās ielasīt ${candidate}: ${e.message}`);
+			}
 		}
 	}
+	if (!loaded) {
+		console.warn("config: secrets.js nav atrasts — moduļi, kuriem vajag atslēgas (piem. Spotify), nerādīsies.");
+	}
 }
+
+// Atrašanās vieta (Cēsis) — kopīga visiem laikapstākļu moduļiem.
+const LAT = 57.311886;
+const LON = 25.274975;
 
 let config = {
 	// "0.0.0.0" — klausās uz visām saskarnēm, lai MagicMirror būtu pieejams no
@@ -40,13 +52,16 @@ let config = {
 	port: 8080,
 	basePath: "/",	// The URL path where MagicMirror² is hosted. If you are using a Reverse proxy
 									// you must set the sub path here. basePath must end with a /
-	// [] — atļauj pieslēgties no jebkuras IP mājas tīklā (vajag MacBook piekļuvei).
-	// Drošāk: ieraksti tikai MacBook IP, piem. ["127.0.0.1", "::ffff:127.0.0.1", "::1", "::ffff:192.168.1.50"].
-	ipWhitelist: [],	// Set [] to allow all IP addresses
-									// or add a specific IPv4 of 192.168.1.5 :
-									// ["127.0.0.1", "::ffff:127.0.0.1", "::1", "::ffff:192.168.1.5"],
-									// or IPv4 range of 192.168.3.0 --> 192.168.3.15 use CIDR format :
-									// ["127.0.0.1", "::ffff:127.0.0.1", "::1", "::ffff:192.168.3.0/28"],
+	// Atļauj tikai lokālā tīkla (RFC1918) adreses: MacBook balss klausītājam
+	// piekļuve ir, bet no interneta puses MagicMirror nav sasniedzams.
+	// Ja tavs tīkls ir tikai 192.168.x.x, atstāj tikai to rindu vai pat
+	// konkrētu MacBook IP, piem. "::ffff:192.168.1.50".
+	ipWhitelist: [
+		"127.0.0.1", "::ffff:127.0.0.1", "::1",
+		"::ffff:192.168.0.0/16",
+		"::ffff:10.0.0.0/8",
+		"::ffff:172.16.0.0/12"
+	],
 
 	useHttps: false,			// Support HTTPS or not, default "false" will use HTTP
 	httpsPrivateKey: "",	// HTTPS private key path, only require when useHttps is true
@@ -121,7 +136,7 @@ let config = {
 			position: "lower_third",
 			config: {
 				compliments: {
-					anytime: ["Sveiks!", "Kā sokās?", "Viss bumbās", "¯\_(ツ)_/¯", "ᕙ( ͡° ͜ʖ ͡°)ᕗ", "ಠ_ಠ"],
+					anytime: ["Sveiks!", "Kā sokās?", "Viss bumbās", "¯\\_(ツ)_/¯", "ᕙ( ͡° ͜ʖ ͡°)ᕗ", "ಠ_ಠ"],
 					morning: ["Labrīt!", "Lai jauka diena!"],
 					afternoon: ["Izskaties lieliski!"],
 					evening: ["Kā pagāja diena?"]
@@ -141,8 +156,8 @@ let config = {
 			config: {
 				weatherProvider: "openmeteo",
 				type: "current",
-				lat: 57.311886,
-				lon: 25.274975
+				lat: LAT,
+				lon: LON
 			}
 		},
 		{
@@ -152,8 +167,8 @@ let config = {
 			config: {
 				weatherProvider: "openmeteo",
 				type: "forecast",
-				lat: 57.311886,
-				lon: 25.274975
+				lat: LAT,
+				lon: LON
 			}
 		},
 		{
@@ -162,8 +177,8 @@ let config = {
 			position: "middle_center",
 			header: "Nedēļas laikapstākļi",
 			config: {
-				lat: 57.311886,
-				lon: 25.274975
+				lat: LAT,
+				lon: LON
 			}
 		},
 		{

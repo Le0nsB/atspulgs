@@ -1,0 +1,263 @@
+/* Config Sample
+ *
+ * Nokopē šo failu uz `config/config.js` un pielāgo.
+ * Dokumentācija:
+ * https://docs.magicmirror.builders/configuration/introduction.html
+ * https://docs.magicmirror.builders/modules/configuration.html
+ */
+// Privātās atslēgas nāk no config/secrets.js (netiek pievienots git — skat.
+// config/secrets.js.sample). Ja faila nav, moduļi, kuriem vajag atslēgas
+// (piem. Spotify), vienkārši nerādīsies.
+// MagicMirror šo failu ielasa kā tekstu (bez īsta __dirname), tāpēc
+// mēģinām absolūtos ceļus līdz secrets.js.
+let secrets = { spotify: {} };
+{
+	const path = require("node:path");
+	const base = (typeof global !== "undefined" && global.root_path) ? global.root_path : process.cwd();
+	const candidates = [
+		path.join(base, "config", "secrets.js"),
+		path.join(base, "secrets.js")
+	];
+	let loaded = false;
+	for (const candidate of candidates) {
+		try {
+			secrets = require(candidate);
+			loaded = true;
+			break;
+		} catch (e) {
+			if (e.code !== "MODULE_NOT_FOUND" || !String(e.message).includes(candidate)) {
+				console.warn(`config: neizdevās ielasīt ${candidate}: ${e.message}`);
+			}
+		}
+	}
+	if (!loaded) {
+		console.warn("config: secrets.js nav atrasts — moduļi, kuriem vajag atslēgas (piem. Spotify), nerādīsies.");
+	}
+}
+
+// Atrašanās vieta — kopīga visiem laikapstākļu moduļiem.
+const LAT = 57.311886;
+const LON = 25.274975;
+
+let config = {
+	// "localhost" — tikai šī ierīce. "0.0.0.0" — visas tīkla saskarnes (vajag,
+	// ja MMM-VoiceCommands klausītājs strādā citā ierīcē: http://<pi-ip>:8080/?voice=listen).
+	address: "localhost",
+	port: 8080,
+	basePath: "/",
+
+	// Kad `address` nav "localhost", ieraksti šeit atļautās IP. Piemērs zemāk
+	// atļauj tikai lokālā tīkla (RFC1918) adreses.
+	ipWhitelist: [
+		"127.0.0.1", "::ffff:127.0.0.1", "::1"
+		// , "::ffff:192.168.0.0/16", "::ffff:10.0.0.0/8", "::ffff:172.16.0.0/12"
+	],
+
+	useHttps: false,
+	httpsPrivateKey: "",
+	httpsCertificate: "",
+
+	language: "en",
+	locale: "en-US",
+
+	logLevel: ["INFO", "LOG", "WARN", "ERROR"], // Add "DEBUG" for even more logging
+	timeFormat: 24,
+	units: "metric",
+
+	modules: [
+		{
+			module: "alert",
+		},
+		{
+			module: "updatenotification",
+			position: "top_bar"
+		},
+		{
+			module: "clock",
+			position: "top_left"
+		},
+		{
+			// Redzamais saraksts sākumlapā — tikai tuvākie svētki.
+			module: "calendar",
+			header: "Brīvdienas Latvijā",
+			position: "top_left",
+			config: {
+				maximumEntries: 5,
+				maximumNumberOfDays: 400,
+				calendars: [
+					{
+						fetchInterval: 7 * 24 * 60 * 60 * 1000,
+						symbol: "calendar-check",
+						url: "https://calendar.google.com/calendar/ical/lv.latvian%23holiday%40group.v.calendar.google.com/public/basic.ics"
+					}
+				]
+			}
+		},
+		{
+			// Neredzams — baro MMM-MonthCalendar ar visa gada svētkiem.
+			module: "calendar",
+			config: {
+				broadcastPastEvents: true,
+				maximumEntries: 60,
+				maximumNumberOfDays: 400,
+				calendars: [
+					{
+						fetchInterval: 7 * 24 * 60 * 60 * 1000,
+						url: "https://calendar.google.com/calendar/ical/lv.latvian%23holiday%40group.v.calendar.google.com/public/basic.ics"
+					}
+				]
+			}
+		},
+		{
+			module: "MMM-Namedays",
+			header: "Vārda diena",
+			position: "top_left",
+			config: {
+				useExtended: false,
+				prefix: ""
+			}
+		},
+		{
+			module: "compliments",
+			position: "lower_third",
+			config: {
+				compliments: {
+					anytime: ["Sveiks!", "Kā sokās?", "Viss bumbās", "¯\\_(ツ)_/¯"],
+					morning: ["Labrīt!", "Lai jauka diena!"],
+					afternoon: ["Izskaties lieliski!"],
+					evening: ["Kā pagāja diena?"]
+				}
+			}
+		},
+		{
+			module: "MMM-DailyVerse",
+			position: "lower_third",
+			config: {
+				mode: "daily"
+			}
+		},
+		{
+			module: "weather",
+			position: "top_right",
+			config: {
+				weatherProvider: "openmeteo",
+				type: "current",
+				lat: LAT,
+				lon: LON
+			}
+		},
+		{
+			module: "weather",
+			position: "top_right",
+			header: "Weather Forecast",
+			config: {
+				weatherProvider: "openmeteo",
+				type: "forecast",
+				lat: LAT,
+				lon: LON
+			}
+		},
+		{
+			// Kreisā lapa: visas nedēļas laika prognoze.
+			module: "MMM-WeekWeather",
+			position: "middle_center",
+			header: "Nedēļas laikapstākļi",
+			config: {
+				lat: LAT,
+				lon: LON
+			}
+		},
+		{
+			// Labā lapa: tekošā mēneša kalendārs ar vārda dienām.
+			module: "MMM-MonthCalendar",
+			position: "middle_center",
+			config: {}
+		},
+		{
+			// Balss komandas ar aktivācijas vārdu "Spoguli" (skat. moduļa README.md).
+			module: "MMM-VoiceCommands",
+			position: "top_center",
+			config: {
+				listen: "auto"
+			}
+		},
+		{
+			// Roku žestu navigācija. Vajag: moduļa mapē `npm install` UN
+			// palaist ar ELECTRON_ENABLE_GPU=1.
+			module: "MMM-GestureNav",
+			position: "bottom_right",
+			config: {
+				showPreview: true,
+				oneFinger: "PAGES_GOTO", oneFingerPayload: 0,
+				twoFingers: "PAGES_GOTO", twoFingersPayload: 2,
+				threeFingers: "PAGES_GOTO", threeFingersPayload: 3,
+				fist: "NEWSDETAIL_NEXT",
+				openPalm: "PAGES_HOME"
+			}
+		},
+		{
+			// Pašlaik atskaņotā Spotify dziesma (skat. moduļa README.md).
+			module: "MMM-SpotifyNowPlaying",
+			position: "bottom_left",
+			config: {
+				clientId: secrets.spotify.clientId,
+				clientSecret: secrets.spotify.clientSecret,
+				refreshToken: secrets.spotify.refreshToken,
+				updateInterval: 15 * 1000,
+				showAlbumArt: true,
+				showProgress: true,
+				hideWhenNothingPlaying: true
+			}
+		},
+		{
+			// Ziņas detalizēti — atsevišķa lapa (3 pirksti).
+			module: "MMM-NewsDetail",
+			position: "middle_center",
+			config: {
+				sourceLabel: "LSM.lv"
+			}
+		},
+		{
+			// Lapu pārslēdzējs: kreisais/labais bulttaustiņš vai žesti.
+			module: "MMM-Pages",
+			config: {
+				home: 1,
+				fixed: ["clock", "alert", "updatenotification", "MMM-GestureNav", "MMM-VoiceCommands"],
+				pages: [
+					["MMM-WeekWeather"],
+					[
+						"calendar",
+						"MMM-Namedays",
+						"compliments",
+						"MMM-DailyVerse",
+						"weather",
+						"newsfeed",
+						"MMM-SpotifyNowPlaying"
+					],
+					["MMM-MonthCalendar"],
+					["MMM-NewsDetail"]
+				]
+			}
+		},
+		{
+			module: "newsfeed",
+			position: "bottom_bar",
+			config: {
+				feeds: [
+					{
+						title: "LSM.lv",
+						url: "https://www.lsm.lv/rss/"
+					}
+				],
+				showSourceTitle: true,
+				showPublishDate: true,
+				wrapTitle: false,
+				broadcastNewsFeeds: true,
+				broadcastNewsUpdates: true
+			}
+		},
+	]
+};
+
+/*************** DO NOT EDIT THE LINE BELOW ***************/
+if (typeof module !== "undefined") { module.exports = config; }

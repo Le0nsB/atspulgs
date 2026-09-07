@@ -39,6 +39,13 @@ Module.register("MMM-Pages", {
 		}
 	},
 
+	stop () {
+		if (this._keyHandler) {
+			document.removeEventListener("keydown", this._keyHandler);
+			this._keyHandler = null;
+		}
+	},
+
 	getDom () {
 		// Modulim nav redzama satura.
 		const wrapper = document.createElement("div");

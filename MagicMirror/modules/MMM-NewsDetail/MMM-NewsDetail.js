@@ -25,6 +25,7 @@ Module.register("MMM-NewsDetail", {
 
 	start () {
 		this.items = [];
+		this.itemsSig = "";
 		this.index = 0;
 		this.pausedUntil = 0;
 		this.rotateTimer = null;
@@ -55,9 +56,14 @@ Module.register("MMM-NewsDetail", {
 	notificationReceived (notification, payload) {
 		if (notification === "NEWS_FEED" && payload && Array.isArray(payload.items)) {
 			const hadNone = this.items.length === 0;
+			const sig = payload.items.map((it) => it.title).join("|");
+			if (sig === this.itemsSig) return; // tie paši dati — nepārzīmējam
+			this.itemsSig = sig;
 			this.items = payload.items;
 			if (this.index >= this.items.length) this.index = 0;
-			if (hadNone) this.updateDom(600);
+			// Pirmoreiz — lēnāka parādīšanās; vēlāk (saraksts mainījies) — ātri
+			// atsvaidzinām skaitītāju un tekstu.
+			this.updateDom(hadNone ? 600 : 300);
 		} else if (notification === this.config.nextNotification) {
 			this.step(1);
 		} else if (notification === this.config.prevNotification) {

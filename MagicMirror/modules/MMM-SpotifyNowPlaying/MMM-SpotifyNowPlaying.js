@@ -91,7 +91,7 @@ Module.register("MMM-SpotifyNowPlaying", {
 			this.barFill.style.width = `${pct}%`;
 		}
 		if (this.timeEl) {
-			this.timeEl.innerHTML = `${this.msToTime(progressMs)} / ${this.msToTime(this.track.durationMs)}`;
+			this.timeEl.textContent = `${this.msToTime(progressMs)} / ${this.msToTime(this.track.durationMs)}`;
 		}
 	},
 
@@ -133,12 +133,12 @@ Module.register("MMM-SpotifyNowPlaying", {
 
 		const title = document.createElement("div");
 		title.className = "mmm-spotify-title bright";
-		title.innerHTML = this.track.title;
+		title.textContent = this.track.title;
 		info.appendChild(title);
 
 		const artist = document.createElement("div");
 		artist.className = "mmm-spotify-artist light";
-		artist.innerHTML = this.track.artist;
+		artist.textContent = this.track.artist;
 		info.appendChild(artist);
 
 		if (this.config.showProgress && this.track.durationMs) {
@@ -154,7 +154,7 @@ Module.register("MMM-SpotifyNowPlaying", {
 
 			this.timeEl = document.createElement("div");
 			this.timeEl.className = "mmm-spotify-time dimmed light xsmall";
-			this.timeEl.innerHTML = `${this.msToTime(progress)} / ${this.msToTime(this.track.durationMs)}`;
+			this.timeEl.textContent = `${this.msToTime(progress)} / ${this.msToTime(this.track.durationMs)}`;
 			info.appendChild(this.timeEl);
 		}
 
