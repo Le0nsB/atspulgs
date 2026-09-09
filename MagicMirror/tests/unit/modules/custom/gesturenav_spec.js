@@ -79,6 +79,38 @@ describe("MMM-GestureNav gestures", () => {
 		});
 	});
 
+	describe("handEngaged", () => {
+		// Roka ar plaukstas locītavu (0) un plaukstas pamatu (9) konkrētās y vietās.
+		const handAt = (wristY, palmBaseY) => {
+			const lm = blankHand();
+			lm[0] = { x: 0.5, y: wristY };
+			lm[9] = { x: 0.5, y: palmBaseY };
+			return lm;
+		};
+
+		it("pacelta roka ar pirkstiem uz augšu -> aktīva", () => {
+			expect(mod.handEngaged(handAt(0.3, 0.1))).toBe(true);
+		});
+
+		it("nolaista roka (locītava zem activeZoneBottom) -> nav aktīva", () => {
+			expect(mod.handEngaged(handAt(0.8, 0.6))).toBe(false);
+		});
+
+		it("roka zonā, bet pirksti uz leju -> nav aktīva", () => {
+			expect(mod.handEngaged(handAt(0.3, 0.4))).toBe(false);
+		});
+
+		it("activeZoneEnabled: false -> zona netiek pārbaudīta", () => {
+			mod.config.activeZoneEnabled = false;
+			expect(mod.handEngaged(handAt(0.9, 0.6))).toBe(true);
+		});
+
+		it("requireUprightHand: false -> orientācija netiek pārbaudīta", () => {
+			mod.config.requireUprightHand = false;
+			expect(mod.handEngaged(handAt(0.3, 0.4))).toBe(true);
+		});
+	});
+
 	describe("bucketLabel", () => {
 		it("cilvēkam lasāmi nosaukumi", () => {
 			expect(mod.bucketLabel(0)).toBe("dūre");

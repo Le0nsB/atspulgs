@@ -17,6 +17,12 @@ Roku žestu navigācija MagicMirror² lapām. Izmanto tīmekļa kameru un
 Pēc katra žesta ir `cooldownMs` pauze; lai to pašu žestu izmantotu vēlreiz,
 starplaikā jāparāda cits žests vai jānolaiž roka.
 
+**Aktīvā zona.** Lai gar sāniem nolaistas rokas nejauši nenostrādātu, žests tiek
+lasīts tikai tad, ja roka ir *apzināti pacelta*: plaukstas locītavai jābūt kadra
+augšdaļā (virs `activeZoneBottom` līnijas — priekšskatījumā tā iezīmēta sarkani)
+**un** pirkstiem vērstiem uz augšu (`requireUprightHand`). Citādi priekšskatījumā
+rādās `roka nolaista` un skelets kļūst pelēks. Abas pārbaudes var izslēgt.
+
 Papildus var ieslēgt **pāršķiršanu ar roku** (`swipeEnabled: true`):
 kustība pa labi → `PAGES_NEXT`, pa kreisi → `PAGES_PREV`.
 
@@ -92,6 +98,10 @@ export ELECTRON_ENABLE_GPU=1
 | `graceMs` | `250` | viens kļūdains kadrs (< šis) taimeri nenullē |
 | `cooldownMs` | `1200` | pauze pēc nostrādāšanas |
 | `palmMinFingers` | `4` | tik izstieptu pirkstu = "atvērta plauksta" |
+| `activeZoneEnabled` | `true` | prasīt, lai plaukstas locītava ir kadra augšdaļā |
+| `activeZoneTop` / `activeZoneBottom` | `0.0` / `0.6` | aktīvās zonas robežas (kadra daļa; `y=0` augša) |
+| `requireUprightHand` | `true` | prasīt, lai pirksti vērsti uz augšu (roka pacelta, ne nolaista) |
+| `uprightMargin` | `0.04` | cik plaukstas pamatam (9) jābūt virs locītavas (0) |
 | `oneFinger` / `oneFingerPayload` | `"PAGES_GOTO"` / `0` | 1 pirksta darbība |
 | `twoFingers` / `twoFingersPayload` | `"PAGES_GOTO"` / `2` | 2 pirkstu darbība |
 | `threeFingers` / `threeFingersPayload` | `null` | 3 pirkstu darbība (izslēgta) |
@@ -117,6 +127,12 @@ Priekšskatījuma logā (apakšā pa labi) redzams uzraksts:
 
 - **Nereaģē / par grūti noturēt:** samazini `holdMs` (piem. `350`).
 - **Nostrādā nejauši:** palielini `holdMs` vai `cooldownMs`.
+- **Nolaižot rokas, nostrādā žests:** roka vēl ir aktīvajā zonā. Pacel
+  `activeZoneBottom` uz augšu (piem. `0.5`) un/vai palielini `uprightMargin`.
+  Priekšskatījumā turi roku virs sarkanās līnijas, pirksti uz augšu.
+- **Grūti "iekļūt" zonā / jātur roka par augstu:** nolaid `activeZoneBottom`
+  (piem. `0.7`), vai izslēdz `activeZoneEnabled` un paļaujies tikai uz
+  `requireUprightHand`.
 - **Pirksti neskaitās (rāda mazāk nekā rādi):** turi roku tuvāk, plaukstu pret
   kameru, pirkstus taisnus; ieslēdz `debug: true`.
 - **Plauksta nostrādā jau pie 3 pirkstiem:** `palmMinFingers` jau ir `4`; ja par

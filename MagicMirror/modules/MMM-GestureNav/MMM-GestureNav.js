@@ -9,6 +9,10 @@
  *   • atvērta plauksta -> notifikācija (pēc noklusējuma PAGES_HOME)
  * (Pēc izvēles var ieslēgt arī pāršķiršanu ar roku: swipeEnabled: true.)
  *
+ * Lai gar sāniem nolaistas rokas netiktu uztvertas, roka jāatpazīst tikai tad,
+ * ja tā ir APZINĀTI pacelta: plaukstas locītava kadra augšdaļā (activeZone*) UN
+ * pirksti vērsti uz augšu (requireUprightHand). Skat. defaults zemāk.
+ *
  * MediaPipe darbojas atsevišķā Web Worker'ī (gesture.worker.js) — gan tāpēc,
  * ka tas nesaderas ar MagicMirror globālo `Module`, gan lai neslogotu galveno
  * pavedienu. Viss lokāli (modelis un WASM iekļauti modulī pēc `npm install`).
@@ -34,6 +38,18 @@ Module.register("MMM-GestureNav", {
 		graceMs: 250, // īss (< šis) mērījuma "lēciens" nenullē taimeri
 		cooldownMs: 1200, // pēc nostrādāšanas šo laiku neko neatpazīst
 		palmMinFingers: 4, // tik izstieptu pirkstu = "atvērta plauksta"
+
+		// --- aktīvā zona (lai gar sāniem nolaistas rokas netiktu uztvertas) ---
+		// Roka jāatpazīst tikai tad, ja tā ir APZINĀTI pacelta:
+		//   1) plaukstas locītava (punkts 0) kadra augšdaļā — starp activeZoneTop
+		//      un activeZoneBottom (kadra daļa; y = 0 ir augša, 1 ir apakša);
+		//   2) pirksti vērsti uz augšu — plaukstas pamats (9) virs locītavas (0).
+		// Nolaista roka gar sānu neizpilda ne vienu, ne otru.
+		activeZoneEnabled: true,
+		activeZoneTop: 0.0, // aktīvās zonas augšmala
+		activeZoneBottom: 0.6, // apakšmala — plaukstas locītavai jābūt virs šīs līnijas
+		requireUprightHand: true, // roka jātur ar pirkstiem uz augšu (ne nolaista)
+		uprightMargin: 0.04, // cik (kadra daļās) plaukstas pamatam (9) jābūt virs locītavas (0)
 
 		// Ko darīt pie katra žesta. Notifikācija (+ neobligāts payload).
 		// null / "" = žests neko nedara. Pirksti = izstiepti rādītājs..mazais.
@@ -233,6 +249,19 @@ Module.register("MMM-GestureNav", {
 		return count;
 	},
 
+	// Vai roka ir apzināti pacelta (nevis nolaista gar sāniem):
+	//   1) plaukstas locītava (0) aktīvajā zonā (kadra augšdaļā);
+	//   2) pirksti uz augšu — plaukstas pamats (9) manāmi virs locītavas (0).
+	handEngaged (lm) {
+		const c = this.config;
+		if (c.activeZoneEnabled) {
+			const y = lm[0].y;
+			if (y < c.activeZoneTop || y > c.activeZoneBottom) return false;
+		}
+		if (c.requireUprightHand && lm[9].y > lm[0].y - c.uprightMargin) return false;
+		return true;
+	},
+
 	// Bakets 0..3 = izstieptu pirkstu skaits; 5 = atvērta plauksta.
 	fingerBucket (lm) {
 		const n = this.extendedFingerCount(lm);
@@ -260,9 +289,13 @@ Module.register("MMM-GestureNav", {
 	},
 
 	handleResult (result, now) {
-		const landmarks = result.landmarks && result.landmarks[0];
+		const rawLandmarks = result.landmarks && result.landmarks[0];
+		const engaged = rawLandmarks ? this.handEngaged(rawLandmarks) : false;
 
-		if (this.canvas && this.config.showPreview) this.drawPreview(landmarks);
+		if (this.canvas && this.config.showPreview) this.drawPreview(rawLandmarks, engaged);
+
+		// Roku, kas nav apzināti pacelta (nolaista gar sāniem), uzskatām par "nav rokas".
+		const landmarks = engaged ? rawLandmarks : null;
 
 		const inCooldown = now - this.lastFireAt < this.config.cooldownMs;
 
@@ -273,7 +306,7 @@ Module.register("MMM-GestureNav", {
 				this.gestureSince = 0;
 				this.firedBucket = -1;
 			}
-			if (!inCooldown) this.setLabel("nav rokas");
+			if (!inCooldown) this.setLabel(rawLandmarks ? "roka nolaista" : "nav rokas");
 			return;
 		}
 
@@ -362,11 +395,29 @@ Module.register("MMM-GestureNav", {
 		this.vidHolder.style.height = `${h}px`;
 	},
 
-	drawPreview (landmarks) {
+	drawPreview (landmarks, engaged) {
 		const ctx = this.canvas.getContext("2d");
 		const { width: w, height: h } = this.canvas;
 		ctx.clearRect(0, 0, w, h);
+
+		// Aktīvās zonas robeža — zem šīs līnijas (un virs augšmalas) roka tiek ignorēta.
+		if (this.config.activeZoneEnabled) {
+			const yTop = this.config.activeZoneTop * h;
+			const yBot = this.config.activeZoneBottom * h;
+			ctx.fillStyle = "rgba(255, 90, 90, 0.10)";
+			ctx.fillRect(0, yBot, w, h - yBot);
+			if (yTop > 0) ctx.fillRect(0, 0, w, yTop);
+			ctx.strokeStyle = "rgba(255, 120, 120, 0.5)";
+			ctx.lineWidth = 1;
+			ctx.beginPath();
+			ctx.moveTo(0, yBot);
+			ctx.lineTo(w, yBot);
+			if (yTop > 0) { ctx.moveTo(0, yTop); ctx.lineTo(w, yTop); }
+			ctx.stroke();
+		}
+
 		if (!landmarks) return;
+		const active = engaged !== false;
 
 		const CONNECTIONS = [
 			[0, 1], [1, 2], [2, 3], [3, 4],
@@ -376,7 +427,7 @@ Module.register("MMM-GestureNav", {
 			[13, 17], [17, 18], [18, 19], [19, 20],
 			[0, 17]
 		];
-		ctx.strokeStyle = "rgba(124, 204, 255, 0.55)";
+		ctx.strokeStyle = active ? "rgba(124, 204, 255, 0.55)" : "rgba(150, 150, 150, 0.4)";
 		ctx.lineWidth = 2;
 		ctx.beginPath();
 		for (const [a, b] of CONNECTIONS) {
@@ -385,7 +436,7 @@ Module.register("MMM-GestureNav", {
 		}
 		ctx.stroke();
 
-		ctx.fillStyle = "#7cccff";
+		ctx.fillStyle = active ? "#7cccff" : "#888";
 		for (const p of landmarks) {
 			ctx.beginPath();
 			ctx.arc(p.x * w, p.y * h, 3, 0, Math.PI * 2);
