@@ -60,6 +60,47 @@ module.exports = {
 | `showProgress` | `true` | Rādīt atskaņošanas joslu un laiku |
 | `hideWhenNothingPlaying` | `true` | Paslēpt moduli, kad nekas neskan |
 | `className` | `"small"` | MagicMirror teksta klases |
+| `playNotification` | `"SPOTIFY_PLAY"` | Notifikācija, kas atsāk atskaņošanu |
+| `pauseNotification` | `"SPOTIFY_PAUSE"` | Notifikācija, kas aptur atskaņošanu |
+| `toggleNotification` | `"SPOTIFY_TOGGLE"` | Notifikācija, kas pārslēdz play/pause |
+| `nextNotification` | `"SPOTIFY_NEXT"` | Notifikācija — nākamā dziesma |
+| `prevNotification` | `"SPOTIFY_PREV"` | Notifikācija — iepriekšējā dziesma |
+| `volumeUpNotification` | `"SPOTIFY_VOLUME_UP"` | Notifikācija — skaļāk |
+| `volumeDownNotification` | `"SPOTIFY_VOLUME_DOWN"` | Notifikācija — klusāk |
+| `volumeStep` | `10` | Procentpunkti vienai skaļāk/klusāk reizei |
+
+## Atskaņošanas vadība (play/pause/next/prev/skaļums)
+
+Modulis klausās parastas MagicMirror notifikācijas (nosaukumus var mainīt
+config'ā, skat. tabulu augstāk) un pārsūta tās uz Spotify Web API caur
+`node_helper`. Tāpēc to var vadīt no **jebkura** cita moduļa vai avota, kas
+sūta šīs notifikācijas — piem.:
+
+- **MMM-VoiceCommands** — noklusējumā jau ietver frāzes "pauze", "atskaņo
+  mūziku", "nākamā dziesma", "skaļāk" u.c. (skat. tā moduļa README.md).
+- **MMM-Remote-Control** — jebkuru no šīm notifikācijām var nosūtīt caur
+  vispārīgo "sūtīt notifikāciju" izvēlni vai REST API
+  (`/api/notification/SPOTIFY_NEXT`), bez papildu konfigurācijas.
+- **MMM-GestureNav** — piesaistot kādam žestam, piem. `config.js`:
+  `fist: "SPOTIFY_TOGGLE"`.
+
+### Priekšnosacījumi
+
+- **Spotify Premium konts.** Bez Premium atskaņošanas vadības galapunkti
+  (play/pause/next/previous/volume) atgriež 403 kļūdu — modulis to uz brīdi
+  parāda ekrānā ("Atskaņošanas vadība prasa Spotify Premium.").
+- **Aktīva ierīce** — Spotify jābūt vaļā (vismaz pauzētā stāvoklī) kādā
+  ierīcē. Ja nav nevienas, redzēsi "Nav aktīvas Spotify ierīces…".
+- **Papildu tiesību apjoms (scope) tokenam.** Refresh token, ko iegūsti ar
+  `npm run get-token`, ir "ieslēgts" tikai tām tiesībām, kas bija pieprasītas
+  tā ģenerēšanas brīdī. Ja tavs `refreshToken` config'ā tapis PIRMS šīs
+  funkcijas, vadības izsaukumi atgriezīsies ar 401/403 — **ģenerē to no
+  jauna**:
+  ```bash
+  cd modules/MMM-SpotifyNowPlaying
+  SPOTIFY_CLIENT_ID=tavs_id SPOTIFY_CLIENT_SECRET=tavs_secret npm run get-token
+  ```
+  un ieliec jauno `refreshToken` `config/secrets.js`.
 
 ## Piezīmes
 

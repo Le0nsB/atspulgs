@@ -13,15 +13,39 @@
 import http from "node:http";
 import { exec } from "node:child_process";
 
-const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
-const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
+// .trim() — bieži cēlonis "client_id: Invalid" kļūdai ir lieka atstarpe vai
+// jauna rinda, kas ievelkas līdzi, kopējot vērtību no pārlūka/termināļa.
+const CLIENT_ID = (process.env.SPOTIFY_CLIENT_ID || "").trim();
+const CLIENT_SECRET = (process.env.SPOTIFY_CLIENT_SECRET || "").trim();
 const REDIRECT_URI = "http://127.0.0.1:8888/callback";
-const SCOPE = "user-read-currently-playing user-read-playback-state";
+const SCOPE = "user-read-currently-playing user-read-playback-state user-modify-playback-state";
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
 	console.error("Trūkst SPOTIFY_CLIENT_ID vai SPOTIFY_CLIENT_SECRET vides mainīgo.");
 	process.exit(1);
 }
+
+// Spotify Client ID/Secret vienmēr ir tieši 32 hex rakstzīmes. Ja garums cits,
+// vērtība gandrīz droši ir nepareiza (nepilnīga kopēšana, iekopēts kas cits,
+// utt.) — tieši tas parasti izraisa "client_id: Invalid" Spotify lapā.
+const HEX32 = /^[0-9a-f]{32}$/i;
+if (!HEX32.test(CLIENT_ID)) {
+	console.warn(
+		`Uzmanību: SPOTIFY_CLIENT_ID izskatās nederīgs (${CLIENT_ID.length} rakstzīmes, sagaidīti tieši 32 hex). `
+		+ "Pārkopē to no https://developer.spotify.com/dashboard -> tava lietotne -> Settings -> Client ID, "
+		+ "bez papildu atstarpēm."
+	);
+}
+if (!HEX32.test(CLIENT_SECRET)) {
+	console.warn(`Uzmanību: SPOTIFY_CLIENT_SECRET izskatās nederīgs (${CLIENT_SECRET.length} rakstzīmes, sagaidīti tieši 32 hex).`);
+}
+
+// Client ID NAV slepens (Spotify to rāda publiski katrā lietotnē), tāpēc to
+// droši var izdrukāt pilnībā, lai pārbaudītu, vai tas TIEŠĀM ir tas, ko
+// domāji ievadījis. Secret paslēpjam.
+console.log(`Izmantoju Client ID: ${CLIENT_ID}`);
+console.log(`Client Secret: ${CLIENT_SECRET.slice(0, 4)}…${CLIENT_SECRET.slice(-4)} (${CLIENT_SECRET.length} rakstzīmes)`);
+console.log("Salīdzini augstējo Client ID ar to, kas redzams https://developer.spotify.com/dashboard -> tava lietotne -> Settings.\n");
 
 const authUrl =
 	"https://accounts.spotify.com/authorize?" +

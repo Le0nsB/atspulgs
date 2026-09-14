@@ -8,6 +8,7 @@ const Log = require("logger");
 
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
 const NOW_PLAYING_URL = "https://api.spotify.com/v1/me/player/currently-playing";
+const PLAYER_URL = "https://api.spotify.com/v1/me/player";
 
 module.exports = NodeHelper.create({
 	start () {
@@ -17,6 +18,8 @@ module.exports = NodeHelper.create({
 		this.timer = null;
 		this.lastPollAt = 0;
 		this.failures = 0; // secīgu kļūdu skaits -> eksponenciāla atkāpšanās
+		this.lastIsPlaying = false; // pēdējais zināmais stāvoklis (priekš "toggle")
+		this.lastVolume = 50; // pēdējā zināmā skaļuma vērtība (priekš relatīva +/-)
 	},
 
 	socketNotificationReceived (notification, payload) {
@@ -28,6 +31,8 @@ module.exports = NodeHelper.create({
 			// Frontend ziņo, ka dziesma beigusies — vaicājam uzreiz (ar drošības
 			// slieksni, lai nepārslogotu API).
 			if (Date.now() - this.lastPollAt > 3000) this.poll();
+		} else if (notification === "SPOTIFY_CONTROL") {
+			this.control(payload && payload.action, payload && payload.value);
 		}
 	},
 
@@ -83,6 +88,7 @@ module.exports = NodeHelper.create({
 			if (res.status === 204 || res.status === 202) {
 				// Nekas neskan / nav aktīvas ierīces
 				this.failures = 0;
+				this.lastIsPlaying = false;
 				this.sendSocketNotification("SPOTIFY_PLAYING", null);
 				return;
 			}
@@ -107,6 +113,10 @@ module.exports = NodeHelper.create({
 
 			const images = (item.album && item.album.images) || [];
 			this.failures = 0;
+			this.lastIsPlaying = !!data.is_playing;
+			if (data.device && typeof data.device.volume_percent === "number") {
+				this.lastVolume = data.device.volume_percent;
+			}
 			this.sendSocketNotification("SPOTIFY_PLAYING", {
 				isPlaying: !!data.is_playing,
 				title: item.name || "",
@@ -122,6 +132,69 @@ module.exports = NodeHelper.create({
 			this.sendSocketNotification("SPOTIFY_ERROR", err.message);
 		} finally {
 			this.scheduleNext();
+		}
+	},
+
+	/* Atskaņošanas vadība (play/pause/toggle/next/previous/volume). Prasa
+	 * Spotify Premium + aktīvu ierīci (skat. README.md). Pēc veiksmīgas
+	 * darbības uzreiz palūdzam svaigu stāvokli, lai ekrāns atsvaidzinās ātri. */
+	async control (action, value) {
+		if (!this.config || !action) return;
+		try {
+			const token = await this.getAccessToken();
+			const headers = { Authorization: `Bearer ${token}` };
+			let url;
+			let method;
+
+			switch (action) {
+				case "play":
+					url = `${PLAYER_URL}/play`; method = "PUT"; break;
+				case "pause":
+					url = `${PLAYER_URL}/pause`; method = "PUT"; break;
+				case "toggle":
+					url = `${PLAYER_URL}/${this.lastIsPlaying ? "pause" : "play"}`; method = "PUT"; break;
+				case "next":
+					url = `${PLAYER_URL}/next`; method = "POST"; break;
+				case "previous":
+					url = `${PLAYER_URL}/previous`; method = "POST"; break;
+				case "volume": {
+					const pct = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+					url = `${PLAYER_URL}/volume?volume_percent=${pct}`; method = "PUT";
+					break;
+				}
+				case "volume_step": {
+					const pct = Math.max(0, Math.min(100, Math.round(this.lastVolume + (Number(value) || 0))));
+					url = `${PLAYER_URL}/volume?volume_percent=${pct}`; method = "PUT";
+					this.lastVolume = pct; // optimistiski; nākamais poll() precizēs
+					break;
+				}
+				default:
+					return;
+			}
+
+			const res = await fetch(url, { method, headers });
+
+			if (res.ok || res.status === 204) {
+				setTimeout(() => this.poll(), 400); // atsvaidzinām stāvokli drīz pēc darbības
+				return;
+			}
+			if (res.status === 404) {
+				this.sendSocketNotification("SPOTIFY_CONTROL_ERROR", "Nav aktīvas Spotify ierīces — atver Spotify kādā ierīcē.");
+				return;
+			}
+			if (res.status === 403) {
+				this.sendSocketNotification("SPOTIFY_CONTROL_ERROR", "Atskaņošanas vadība prasa Spotify Premium.");
+				return;
+			}
+			if (res.status === 401) {
+				this.accessToken = null; // token noraidīts — nākamā darbība/poll atjaunos
+				this.sendSocketNotification("SPOTIFY_CONTROL_ERROR", "Autorizācija noraidīta — mēģini vēlreiz.");
+				return;
+			}
+			throw new Error(`${method} ${url} -> ${res.status}: ${await res.text()}`);
+		} catch (err) {
+			Log.error(`[MMM-SpotifyNowPlaying] kontroles kļūda (${action}): ${err.message}`);
+			this.sendSocketNotification("SPOTIFY_CONTROL_ERROR", `Kontrole neizdevās: ${err.message}`);
 		}
 	}
 });

@@ -113,6 +113,15 @@ cilne var būt fonā.
 | uz sākumu / sākums / mājas                  | `PAGES_HOME`              |
 | nākamā lapa / uz priekšu                    | `PAGES_NEXT`             |
 | iepriekšējā lapa / atpakaļ                  | `PAGES_PREV`            |
+| apturi mūziku / pauze                       | `SPOTIFY_PAUSE`          |
+| atskaņo mūziku / turpini mūziku             | `SPOTIFY_PLAY`           |
+| nākamā dziesma / cita dziesma               | `SPOTIFY_NEXT`           |
+| iepriekšējā dziesma                         | `SPOTIFY_PREV`           |
+| skaļāk                                      | `SPOTIFY_VOLUME_UP`      |
+| klusāk                                      | `SPOTIFY_VOLUME_DOWN`    |
+
+(Spotify komandas prasa `MMM-SpotifyNowPlaying` ar Premium kontu un aktīvu
+ierīci — skat. tā moduļa README.md.)
 
 ### Savas komandas
 

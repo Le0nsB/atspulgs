@@ -17,7 +17,19 @@ Module.register("MMM-SpotifyNowPlaying", {
 		showAlbumArt: true,
 		showProgress: true,
 		hideWhenNothingPlaying: true,
-		className: "small"
+		className: "small",
+
+		// --- atskaņošanas vadība (prasa Spotify Premium + aktīvu ierīci) ---
+		// Notifikācijas, ko sūta žesti/balss/tālvadība, lai vadītu atskaņošanu.
+		// null = tā darbība izslēgta.
+		playNotification: "SPOTIFY_PLAY",
+		pauseNotification: "SPOTIFY_PAUSE",
+		toggleNotification: "SPOTIFY_TOGGLE", // play/pause atkarībā no stāvokļa
+		nextNotification: "SPOTIFY_NEXT",
+		prevNotification: "SPOTIFY_PREV",
+		volumeUpNotification: "SPOTIFY_VOLUME_UP",
+		volumeDownNotification: "SPOTIFY_VOLUME_DOWN",
+		volumeStep: 10 // procentpunkti vienai "skaļāk"/"klusāk" reizei
 	},
 
 	getStyles () {
@@ -31,6 +43,7 @@ Module.register("MMM-SpotifyNowPlaying", {
 		this.hasError = false;
 		this.barFill = null; // DOM atsauces, ko atjaunot bez pilnas pārzīmēšanas
 		this.timeEl = null;
+		this.controlMessage = null; // īslaicīgs kļūdas teksts pēc neveiksmīgas vadības
 
 		if (!this.config.clientId || !this.config.clientSecret || !this.config.refreshToken) {
 			this.hasError = "config"; // trūkst akreditācijas datu
@@ -50,7 +63,41 @@ Module.register("MMM-SpotifyNowPlaying", {
 		} else if (notification === "SPOTIFY_ERROR") {
 			this.hasError = payload || true;
 			this.updateDom(500);
+		} else if (notification === "SPOTIFY_CONTROL_ERROR") {
+			this.showControlMessage(payload);
 		}
+	},
+
+	// Vadības notifikācijas no citiem moduļiem (balss/žesti/tālvadība).
+	notificationReceived (notification, payload) {
+		const c = this.config;
+		switch (notification) {
+			case c.playNotification: this.control("play"); break;
+			case c.pauseNotification: this.control("pause"); break;
+			case c.toggleNotification: this.control("toggle"); break;
+			case c.nextNotification: this.control("next"); break;
+			case c.prevNotification: this.control("previous"); break;
+			case c.volumeUpNotification: this.control("volume_step", c.volumeStep); break;
+			case c.volumeDownNotification: this.control("volume_step", -c.volumeStep); break;
+			default: break;
+		}
+	},
+
+	control (action, value) {
+		if (this.hasError === "config") return; // nav akreditācijas — nav ko darīt
+		this.sendSocketNotification("SPOTIFY_CONTROL", { action, value });
+	},
+
+	// Īslaicīgi parāda kļūdu (piem. "vajag Premium"), pat ja hideWhenNothingPlaying
+	// citādi widget'u slēptu — citādi lietotājs neko neredzētu un nezinātu, kāpēc.
+	showControlMessage (text) {
+		this.controlMessage = text;
+		this.updateDom(200);
+		clearTimeout(this._controlMsgTimer);
+		this._controlMsgTimer = setTimeout(() => {
+			this.controlMessage = null;
+			this.updateDom(500);
+		}, 4000);
 	},
 
 	/* Cik tālu dziesma ir tikusi ŠOBRĪD — reālā pozīcija plus laiks,
@@ -114,6 +161,12 @@ Module.register("MMM-SpotifyNowPlaying", {
 			return wrapper;
 		}
 
+		if (this.controlMessage) {
+			wrapper.className += " dimmed light small";
+			wrapper.innerHTML = `🎵 ${this.controlMessage}`;
+			return wrapper;
+		}
+
 		if (!this.track || !this.track.isPlaying) {
 			if (this.config.hideWhenNothingPlaying) return wrapper; // tukšs = paslēpts
 			wrapper.className += " dimmed light";
@@ -160,5 +213,10 @@ Module.register("MMM-SpotifyNowPlaying", {
 
 		wrapper.appendChild(info);
 		return wrapper;
+	},
+
+	stop () {
+		if (this.ticker) clearInterval(this.ticker);
+		clearTimeout(this._controlMsgTimer);
 	}
 });

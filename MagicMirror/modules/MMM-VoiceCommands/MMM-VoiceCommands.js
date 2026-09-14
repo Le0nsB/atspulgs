@@ -66,7 +66,15 @@ Module.register("MMM-VoiceCommands", {
 			{ phrases: ["nākamā ziņa", "nākošā ziņa", "cita ziņa"], notification: "NEWSDETAIL_NEXT", label: "Nākamā ziņa" },
 			{ phrases: ["uz sākumu", "sākuma lapa", "sākums", "mājas"], notification: "PAGES_HOME", label: "Sākums" },
 			{ phrases: ["nākamā lapa", "nākošā lapa", "uz priekšu"], notification: "PAGES_NEXT", label: "Nākamā lapa" },
-			{ phrases: ["iepriekšējā lapa", "iepriekšēja lapa", "atpakaļ"], notification: "PAGES_PREV", label: "Iepriekšējā lapa" }
+			{ phrases: ["iepriekšējā lapa", "iepriekšēja lapa", "atpakaļ"], notification: "PAGES_PREV", label: "Iepriekšējā lapa" },
+
+			// --- Spotify vadība (skat. MMM-SpotifyNowPlaying; prasa Premium + aktīvu ierīci) ---
+			{ phrases: ["apturi mūziku", "pauzē mūziku", "pauze"], notification: "SPOTIFY_PAUSE", label: "Mūzika: pauze" },
+			{ phrases: ["atskaņo mūziku", "turpini mūziku", "spēlē mūziku"], notification: "SPOTIFY_PLAY", label: "Mūzika: atskaņo" },
+			{ phrases: ["nākamā dziesma", "cita dziesma"], notification: "SPOTIFY_NEXT", label: "Nākamā dziesma" },
+			{ phrases: ["iepriekšējā dziesma", "iepriekšēja dziesma"], notification: "SPOTIFY_PREV", label: "Iepriekšējā dziesma" },
+			{ phrases: ["skaļāk"], notification: "SPOTIFY_VOLUME_UP", label: "Skaļāk" },
+			{ phrases: ["klusāk"], notification: "SPOTIFY_VOLUME_DOWN", label: "Klusāk" }
 		]
 	},
 
