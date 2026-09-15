@@ -13,7 +13,8 @@
  *
  * Galvenais pavediens sūta `ImageBitmap` kadrus; worker atsūta atpakaļ
  * tikai vienas rokas punktus.
- */
+ *
+ * 63-92-Nav
 /* global importScripts */
 
 let landmarker = null;

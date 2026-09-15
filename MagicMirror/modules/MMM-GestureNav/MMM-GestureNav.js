@@ -17,6 +17,9 @@
  * ka tas nesaderas ar MagicMirror globālo `Module`, gan lai neslogotu galveno
  * pavedienu. Viss lokāli (modelis un WASM iekļauti modulī pēc `npm install`).
  * Saderīgs ar MMM-Pages notifikāciju API. Nepieciešams ELECTRON_ENABLE_GPU=1.
+ * 
+ * 159-212-230-Gesture.worker.js
+ * 257-243-318
  */
 Module.register("MMM-GestureNav", {
 	defaults: {

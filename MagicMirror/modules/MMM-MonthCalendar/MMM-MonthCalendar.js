@@ -11,7 +11,7 @@ Module.register("MMM-MonthCalendar", {
 	defaults: {
 		firstDayOfWeek: 1, // 1 = pirmdiena
 		useExtended: false, // saskaņā ar MMM-Namedays
-		maxNamesPerDay: 2,
+		maxNamesPerDay: 4,
 		showNamedays: true,
 		showHolidays: true, // rādīt svētkus no `calendar` moduļa
 		maxHolidaysPerDay: 2,

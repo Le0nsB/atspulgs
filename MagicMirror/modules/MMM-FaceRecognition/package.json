@@ -1,0 +1,16 @@
+{
+  "name": "mmm-facerecognition",
+  "version": "1.0.0",
+  "description": "Klātbūtnes noteikšana ar tīmekļa kameru (MediaPipe FaceDetector) — ieslēdz/izslēdz ekrānu, kad kāds ir/nav spoguļa priekšā.",
+  "main": "MMM-FaceRecognition.js",
+  "scripts": {
+    "setup": "node download-assets.mjs",
+    "postinstall": "node download-assets.mjs"
+  },
+  "keywords": ["MagicMirror", "presence", "mediapipe", "face-detection"],
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^1.0.1"
+  }
+}

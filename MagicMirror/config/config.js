@@ -13,7 +13,10 @@
 // MagicMirror šo failu ielasa kā tekstu (bez īsta __dirname), tāpēc
 // mēģinām vairākus ceļus līdz secrets.js.
 let secrets = { spotify: {} };
-{
+// Tikai servera pusē (Node). Pārlūkā (piem. remote.html no telefona, kur nav
+// Electron `require`) šis bloks netiek izpildīts — citādi visa config.js
+// izpilde mestu "require is not defined" un `config` paliktu nedefinēts.
+if (typeof require === "function") {
 	const path = require("node:path");
 	const base = (typeof global !== "undefined" && global.root_path) ? global.root_path : process.cwd();
 	const candidates = [
@@ -58,9 +61,11 @@ let config = {
 	// konkrētu MacBook IP, piem. "::ffff:192.168.1.50".
 	ipWhitelist: [
 		"127.0.0.1", "::ffff:127.0.0.1", "::1",
-		"::ffff:192.168.0.0/16",
-		"::ffff:10.0.0.0/8",
-		"::ffff:172.16.0.0/12"
+		// Abas formas: IPv6-mapētā (::ffff:) dual-stack ligzdai un tīrā IPv4
+		// forma, kad MM klausās tikai uz IPv4 (piem. telefons hotspot tīklā).
+		"192.168.0.0/16", "::ffff:192.168.0.0/16",
+		"10.0.0.0/8", "::ffff:10.0.0.0/8",
+		"172.16.0.0/12", "::ffff:172.16.0.0/12"
 	],
 
 	useHttps: false,			// Support HTTPS or not, default "false" will use HTTP
@@ -84,6 +89,18 @@ let config = {
 		{
 			module: "updatenotification",
 			position: "top_bar"
+		},
+		{
+			// Tālvadība caur pārlūku: http://<pi-ip>:8080/remote.html
+			// (izslēgt/restartēt Pi, pārstartēt MM, ieslēgt/izslēgt moduļus,
+			// mainīt config). Bez position — nekas nav redzams uz ekrāna.
+			// API ir aizsargāts tikai ar ipWhitelist; ja vajag arī apiKey,
+			// ģenerē ar `node --run generate-apikey` moduļa mapē un pievieno šeit.
+			module: "MMM-Remote-Control",
+			config: {
+				// customCommand: {},
+				// apiKey: ""
+			}
 		},
 		{
 			module: "clock",
@@ -199,7 +216,13 @@ let config = {
 			module: "MMM-VoiceCommands",
 			position: "top_center",
 			config: {
-				listen: "auto" // "auto" -> klausās, ja pārlūkam ir Web Speech API
+				// "auto" NEDER: Electron Chromium objekts webkitSpeechRecognition
+				// EKSISTĒ (tāpēc "auto" to nekļūdīgi noteiktu par "listener"),
+				// bet tīkla pieprasījums uz Google runas serveri tur vienmēr krīt
+				// (nav Google API atslēgas) — skat. MMM-VoiceCommands.js:8-10.
+				// Tāpēc šeit piespiedu kārtā "display"; mikrofons jāieslēdz
+				// reālā Chrome cilnē: http://<pi-ip>:8080/?voice=listen
+				listen: false
 			}
 		},
 		{
@@ -241,11 +264,32 @@ let config = {
 			}
 		},
 		{
+			// Klātbūtnes noteikšana ar kameru (MediaPipe FaceDetector, NAV identitātes
+			// atpazīšana) — ieslēdz/izslēdz ekrānu caur MMM-Remote-Control. Vajag:
+			// moduļa mapē `npm install` UN palaist ar ELECTRON_ENABLE_GPU=1, UN
+			// MMM-Remote-Control jābūt sarakstā (skat. moduļa README.md).
+			module: "MMM-FaceRecognition",
+			config: {
+				absentTimeoutMs: 30 * 1000 // 30 s bez sejas -> ekrāns izslēdzas
+			}
+		},
+		{
+			// "Matrix" digitālais lietus kā ekrānsaudzētājs pēc 1 min neaktivitātes.
+			// Pamostas no peles/tastatūras/pieskāriena UN no žestiem/balss/tālvadības
+			// (skat. activityNotifications moduļa noklusējumos). Jābūt MMM-Pages
+			// `fixed` sarakstā, citādi lapu pārslēgšana to paslēptu.
+			module: "MMM-MatrixScreensaver",
+			position: "fullscreen_above",
+			config: {
+				timeout: 60 * 1000
+			}
+		},
+		{
 			// Lapu pārslēdzējs: kreisais/labais bulttaustiņš vai žesti (MMM-GestureNav).
 			module: "MMM-Pages",
 			config: {
 				home: 1,
-				fixed: ["clock", "alert", "updatenotification", "MMM-GestureNav", "MMM-VoiceCommands"],
+				fixed: ["clock", "alert", "updatenotification", "MMM-GestureNav", "MMM-VoiceCommands", "MMM-FaceRecognition", "MMM-MatrixScreensaver"],
 				pages: [
 					["MMM-WeekWeather"],
 					[
