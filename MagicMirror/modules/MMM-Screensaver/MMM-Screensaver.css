@@ -1,0 +1,72 @@
+/* Pilnekrāna ekrānsaudzētājs ar vairākām "sejām". Sākumā neredzams;
+   .active -> izbālē iekšā. */
+.mmm-screensaver {
+	position: fixed;
+	inset: 0;
+	width: 100vw;
+	height: 100vh;
+	margin: 0;
+	background: #000;
+	z-index: 99999;
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none; /* pieskārieni/pele iet cauri, bet notikumi uz window joprojām nostrādā */
+	transition-property: opacity, visibility;
+	transition-timing-function: ease-in-out;
+	/* transition-duration nāk no moduļa (config.fadeSpeed) */
+}
+
+.mmm-screensaver.active {
+	opacity: 1;
+	visibility: visible;
+}
+
+/* Katrā brīdī redzama tikai viena "seja" (.ss-face-active). */
+.ss-face {
+	display: none;
+	position: absolute;
+	inset: 0;
+}
+
+.ss-canvas.ss-face-active {
+	display: block;
+}
+
+.ss-face-clock.ss-face-active {
+	display: flex;
+}
+
+.ss-canvas {
+	width: 100%;
+	height: 100%;
+}
+
+/* --- Digitālais pulkstenis --- */
+
+.ss-face-clock {
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	font-family: "Courier New", monospace;
+}
+
+.ss-clock-time {
+	font-size: 16vw;
+	font-weight: bold;
+	letter-spacing: 0.03em;
+	line-height: 1;
+}
+
+.ss-clock-date {
+	margin-top: 1.2vw;
+	font-size: 2.4vw;
+	text-transform: capitalize;
+	opacity: 0.85;
+}
+
+/* Pārējie moduļi aiz ekrānsaudzētāja (config.dimOtherModules). Neaiztiekam
+   pilnekrāna reģionus, kuros dzīvo pats ekrānsaudzētājs. */
+body.mmm-screensaver-on .region:not(.fullscreen) {
+	opacity: 0;
+	transition: opacity 1s ease-in-out;
+}

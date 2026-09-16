@@ -255,6 +255,19 @@ let config = {
 			}
 		},
 		{
+			// Spotify detalizēti — atsevišķa lapa: griežas vinils ar albuma
+			// vāciņu, rinda un sinhronizēti dziesmas vārdi (skat. moduļa
+			// README.md). Izmanto tos pašus akreditācijas datus kā
+			// MMM-SpotifyNowPlaying, bet ir neatkarīgs modulis (savs node_helper).
+			module: "MMM-SpotifyDetail",
+			position: "middle_center",
+			config: {
+				clientId: secrets.spotify.clientId,
+				clientSecret: secrets.spotify.clientSecret,
+				refreshToken: secrets.spotify.refreshToken
+			}
+		},
+		{
 			// Ziņas detalizēti — atsevišķa lapa (3 pirksti). Viena ziņa vienlaikus,
 			// pilns kopsavilkums; rotē pati, ✊ dūre = nākamā ziņa.
 			module: "MMM-NewsDetail",
@@ -274,14 +287,18 @@ let config = {
 			}
 		},
 		{
-			// "Matrix" digitālais lietus kā ekrānsaudzētājs pēc 1 min neaktivitātes.
-			// Pamostas no peles/tastatūras/pieskāriena UN no žestiem/balss/tālvadības
-			// (skat. activityNotifications moduļa noklusējumos). Jābūt MMM-Pages
+			// Ekrānsaudzētājs pēc 1 min neaktivitātes — rotē starp Matrix
+			// digitālo lietu, digitālo pulksteni un lēni rotējošu ikosaedru
+			// (skat. MMM-Screensaver README.md). Pamostas no peles/tastatūras/
+			// pieskāriena UN no žestiem/balss/tālvadības (skat.
+			// activityNotifications moduļa noklusējumos). Jābūt MMM-Pages
 			// `fixed` sarakstā, citādi lapu pārslēgšana to paslēptu.
-			module: "MMM-MatrixScreensaver",
+			module: "MMM-Screensaver",
 			position: "fullscreen_above",
 			config: {
-				timeout: 60 * 1000
+				timeout: 60 * 1000,
+				screensavers: ["matrix", "clock", "icosahedron"],
+				screensaverDuration: 45 * 1000
 			}
 		},
 		{
@@ -289,7 +306,7 @@ let config = {
 			module: "MMM-Pages",
 			config: {
 				home: 1,
-				fixed: ["clock", "alert", "updatenotification", "MMM-GestureNav", "MMM-VoiceCommands", "MMM-FaceRecognition", "MMM-MatrixScreensaver"],
+				fixed: ["clock", "alert", "updatenotification", "MMM-GestureNav", "MMM-VoiceCommands", "MMM-FaceRecognition", "MMM-Screensaver"],
 				pages: [
 					["MMM-WeekWeather"],
 					[
@@ -302,7 +319,8 @@ let config = {
 						"MMM-SpotifyNowPlaying"
 					],
 					["MMM-MonthCalendar"],
-					["MMM-NewsDetail"]
+					["MMM-NewsDetail"],
+					["MMM-SpotifyDetail"]
 				]
 			}
 		},
