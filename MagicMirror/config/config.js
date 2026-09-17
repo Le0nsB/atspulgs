@@ -231,6 +231,9 @@ let config = {
 			module: "MMM-GestureNav",
 			position: "bottom_right",
 			config: {
+				// TODO: noņemt pirms Pi izvietošanas — šis ID der tikai šim MacBook
+				// profilam (C270 HD WEBCAM), uz Pi ar `exact` constraint tas neizdosies.
+				deviceId: "ed074b0952c846269468d97339dea5a2d414a28dfc8bb657dbd1e1ea4dfd4327",
 				showPreview: true, // mazs kameras priekšskatījums (var izslēgt)
 				oneFinger: "PAGES_GOTO", oneFingerPayload: 0, // 1 pirksts -> nedēļas laiks
 				twoFingers: "PAGES_GOTO", twoFingersPayload: 2, // 2 pirksti -> mēneša kalendārs
@@ -283,6 +286,9 @@ let config = {
 			// MMM-Remote-Control jābūt sarakstā (skat. moduļa README.md).
 			module: "MMM-FaceRecognition",
 			config: {
+				// TODO: noņemt pirms Pi izvietošanas — šis ID der tikai šim MacBook
+				// profilam (C270 HD WEBCAM), uz Pi ar `exact` constraint tas neizdosies.
+				deviceId: "ed074b0952c846269468d97339dea5a2d414a28dfc8bb657dbd1e1ea4dfd4327",
 				absentTimeoutMs: 30 * 1000 // 30 s bez sejas -> ekrāns izslēdzas
 			}
 		},

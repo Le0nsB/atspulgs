@@ -1,16 +1,22 @@
 .mmm-gesturenav .gn-box {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 6px;
 }
 
 .mmm-gesturenav .gn-vid {
 	position: relative;
 	width: 100%;
 	overflow: hidden;
-	border-radius: 8px;
-	background: #000;
-	opacity: 0.85;
+	border-radius: 10px;
+	background: rgba(0, 0, 0, 0.55);
+	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+	opacity: 0.92;
+	transition: box-shadow 300ms ease;
+}
+
+.mmm-gesturenav .gn-vid.gn-active {
+	box-shadow: 0 0 0 1px rgba(124, 204, 255, 0.5), 0 0 14px rgba(124, 204, 255, 0.22);
 }
 
 /* Spoguļošana: apgriež gan video, gan uz tā zīmēto kanvu. */
@@ -31,8 +37,30 @@
 	inset: 0;
 }
 
-.mmm-gesturenav .gn-label {
-	text-align: center;
-	letter-spacing: 1px;
+.mmm-gesturenav .gn-label,
+.mmm-gesturenav .gn-status {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	letter-spacing: 0.05em;
 	text-transform: uppercase;
+	opacity: 0.75;
+}
+
+.mmm-gesturenav .gn-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: #777;
+	flex: 0 0 auto;
+}
+
+.mmm-gesturenav .gn-dot.gn-active {
+	background: #7cccff;
+	box-shadow: 0 0 6px #7cccff;
+}
+
+.mmm-gesturenav .gn-dot.gn-error {
+	background: #ff6b6b;
+	box-shadow: 0 0 6px #ff6b6b;
 }

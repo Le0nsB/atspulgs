@@ -1,8 +1,9 @@
 /* MagicMirror² Module: MMM-SpotifyDetail
  *
- * Atsevišķa "lapa" ar pilnu Spotify skatu: pašreizējā dziesma uz griežas
- * vinila diska (ar albuma vāciņu tā centrā), rindā nākošās dziesmas un
- * dziesmas vārdi, kas sinhroni izceļas ("live lyrics") atskaņošanas laikā.
+ * Atsevišķa "lapa" ar pilnu Spotify skatu: pa vidu griežas vinila disks
+ * (ar albuma vāciņu tā centrā) un zem tā dziesmas nosaukums/garums; pa
+ * kreisi vārdi, kas sinhroni izceļas ("live lyrics") atskaņošanas laikā,
+ * pa labi rindā nākošās dziesmas.
  *
  * Dati (dziesma, rinda, vārdi) nāk no node_helper — skat. tā komentārus par
  * Spotify Web API un LRCLIB izmantošanu.
@@ -326,18 +327,21 @@ Module.register("MMM-SpotifyDetail", {
 			return wrapper;
 		}
 
-		const top = document.createElement("div");
-		top.className = "sd-top";
-		top.appendChild(this.buildVinyl());
-		top.appendChild(this.buildNowPlaying());
-		wrapper.appendChild(top);
+		const layout = document.createElement("div");
+		layout.className = "sd-layout";
+		if (!this.config.showLyrics) layout.classList.add("sd-no-lyrics");
 
-		const bottom = document.createElement("div");
-		bottom.className = "sd-bottom";
-		bottom.appendChild(this.buildQueue());
-		if (this.config.showLyrics) bottom.appendChild(this.buildLyrics());
-		wrapper.appendChild(bottom);
+		if (this.config.showLyrics) layout.appendChild(this.buildLyrics());
 
+		const center = document.createElement("div");
+		center.className = "sd-center";
+		center.appendChild(this.buildVinyl());
+		center.appendChild(this.buildNowPlaying());
+		layout.appendChild(center);
+
+		layout.appendChild(this.buildQueue());
+
+		wrapper.appendChild(layout);
 		return wrapper;
 	},
 

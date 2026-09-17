@@ -84,6 +84,7 @@ Module.register("MMM-FaceRecognition", {
 	fail (error) {
 		Log.error("MMM-FaceRecognition: kļūda", error);
 		this.status = `kļūda: ${error && error.message ? error.message : error}`;
+		this.setDot("error");
 		this.renderStatus();
 	},
 
@@ -129,9 +130,17 @@ Module.register("MMM-FaceRecognition", {
 
 	async startCamera () {
 		const video = { width: { ideal: this.config.cameraWidth }, height: { ideal: this.config.cameraHeight } };
-		if (this.config.deviceId) video.deviceId = { exact: this.config.deviceId };
 
-		this.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video });
+		try {
+			this.stream = await navigator.mediaDevices.getUserMedia({
+				audio: false,
+				video: this.config.deviceId ? { ...video, deviceId: { exact: this.config.deviceId } } : video
+			});
+		} catch (error) {
+			if (!this.config.deviceId) throw error;
+			Log.warn(`MMM-FaceRecognition: kamera ${this.config.deviceId} nav pieejama (${error.message}), izmantoju nākamo pieejamo kameru`);
+			this.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video });
+		}
 
 		this.video = document.createElement("video");
 		this.video.autoplay = true;
@@ -210,6 +219,7 @@ Module.register("MMM-FaceRecognition", {
 	},
 
 	handleResult (msg, now) {
+		this.setDot(msg.present ? "present" : "idle");
 		if (this.canvas && this.config.showPreview) this.drawPreview(msg.box, msg.present);
 
 		if (msg.present) {
@@ -293,15 +303,29 @@ Module.register("MMM-FaceRecognition", {
 		if (this.statusEl) this.statusEl.textContent = `🧑 ${this.status}`;
 	},
 
+	// state: "idle" (nav sejas), "present" (seja konstatēta), "error"
+	setDot (state) {
+		if (!this.dotEl) return;
+		this.dotEl.classList.remove("fr-present", "fr-error");
+		if (state === "present" || state === "error") this.dotEl.classList.add(`fr-${state}`);
+		if (this.vidHolder) this.vidHolder.classList.toggle("fr-active", state === "present");
+	},
+
 	getDom () {
 		const wrapper = document.createElement("div");
 		wrapper.className = "mmm-facerecognition";
 
 		if (!this.config.showPreview) {
 			wrapper.className += " small dimmed";
+			const statusWrap = document.createElement("span");
+			statusWrap.className = "fr-status";
+			this.dotEl = document.createElement("span");
+			this.dotEl.className = "fr-dot";
 			this.statusEl = document.createElement("span");
 			this.statusEl.textContent = `🧑 ${this.status || ""}`;
-			wrapper.appendChild(this.statusEl);
+			statusWrap.appendChild(this.dotEl);
+			statusWrap.appendChild(this.statusEl);
+			wrapper.appendChild(statusWrap);
 			return wrapper;
 		}
 
@@ -321,13 +345,17 @@ Module.register("MMM-FaceRecognition", {
 
 			const label = document.createElement("div");
 			label.className = "fr-label small";
-			label.textContent = this.status || "";
+			this.dotEl = document.createElement("span");
+			this.dotEl.className = "fr-dot";
+			this.labelEl = document.createElement("span");
+			this.labelEl.textContent = this.status || "";
+			label.appendChild(this.dotEl);
+			label.appendChild(this.labelEl);
 			box.appendChild(label);
 
 			this.previewWrapper = box;
 			this.vidHolder = vidHolder;
 			this.canvas = canvas;
-			this.labelEl = label;
 
 			if (this.video) this.attachPreview();
 		}

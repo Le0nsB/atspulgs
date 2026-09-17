@@ -1,11 +1,22 @@
 .mmm-spotifydetail {
-	max-width: 780px;
+	max-width: 1040px;
 }
 
-.sd-top {
+.sd-layout {
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
+	align-items: start;
+	gap: 32px;
+}
+
+.sd-layout.sd-no-lyrics {
+	grid-template-columns: auto 1fr;
+}
+
+.sd-center {
 	display: flex;
+	flex-direction: column;
 	align-items: center;
-	gap: 28px;
 }
 
 /* --- Vinila disks --- */
@@ -77,7 +88,10 @@
 
 .sd-now {
 	min-width: 0;
-	flex: 1;
+	width: 100%;
+	max-width: 260px;
+	margin-top: 18px;
+	text-align: center;
 }
 
 .sd-title {
@@ -121,19 +135,12 @@
 
 /* --- Rinda un vārdi --- */
 
-.sd-bottom {
-	display: flex;
-	gap: 32px;
-	margin-top: 24px;
-}
-
 .sd-heading {
 	letter-spacing: 0.08em;
 	margin-bottom: 8px;
 }
 
 .sd-queue {
-	flex: 1;
 	min-width: 0;
 }
 
@@ -169,7 +176,6 @@
 }
 
 .sd-lyrics {
-	flex: 1;
 	min-width: 0;
 	max-height: 220px;
 	overflow: hidden;

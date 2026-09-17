@@ -110,6 +110,7 @@ Module.register("MMM-GestureNav", {
 	fail (error) {
 		Log.error("MMM-GestureNav: kļūda", error);
 		this.status = `kļūda: ${error && error.message ? error.message : error}`;
+		this.setDot("error");
 		this.renderStatus();
 	},
 
@@ -155,9 +156,17 @@ Module.register("MMM-GestureNav", {
 
 	async startCamera () {
 		const video = { width: { ideal: this.config.cameraWidth }, height: { ideal: this.config.cameraHeight } };
-		if (this.config.deviceId) video.deviceId = { exact: this.config.deviceId };
 
-		this.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video });
+		try {
+			this.stream = await navigator.mediaDevices.getUserMedia({
+				audio: false,
+				video: this.config.deviceId ? { ...video, deviceId: { exact: this.config.deviceId } } : video
+			});
+		} catch (error) {
+			if (!this.config.deviceId) throw error;
+			Log.warn(`MMM-GestureNav: kamera ${this.config.deviceId} nav pieejama (${error.message}), izmantoju nākamo pieejamo kameru`);
+			this.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video });
+		}
 
 		this.video = document.createElement("video");
 		this.video.autoplay = true;
@@ -295,6 +304,7 @@ Module.register("MMM-GestureNav", {
 		const rawLandmarks = result.landmarks && result.landmarks[0];
 		const engaged = rawLandmarks ? this.handEngaged(rawLandmarks) : false;
 
+		this.setDot(engaged ? "active" : "idle");
 		if (this.canvas && this.config.showPreview) this.drawPreview(rawLandmarks, engaged);
 
 		// Roku, kas nav apzināti pacelta (nolaista gar sāniem), uzskatām par "nav rokas".
@@ -458,15 +468,29 @@ Module.register("MMM-GestureNav", {
 		if (this.statusEl) this.statusEl.textContent = `👋 ${this.status}`;
 	},
 
+	// state: "idle" (nekas nav atpazīts), "active" (roka apzināti pacelta), "error"
+	setDot (state) {
+		if (!this.dotEl) return;
+		this.dotEl.classList.remove("gn-active", "gn-error");
+		if (state === "active" || state === "error") this.dotEl.classList.add(`gn-${state}`);
+		if (this.vidHolder) this.vidHolder.classList.toggle("gn-active", state === "active");
+	},
+
 	getDom () {
 		const wrapper = document.createElement("div");
 		wrapper.className = "mmm-gesturenav";
 
 		if (!this.config.showPreview) {
 			wrapper.className += " small dimmed";
+			const statusWrap = document.createElement("span");
+			statusWrap.className = "gn-status";
+			this.dotEl = document.createElement("span");
+			this.dotEl.className = "gn-dot";
 			this.statusEl = document.createElement("span");
 			this.statusEl.textContent = `👋 ${this.status || ""}`;
-			wrapper.appendChild(this.statusEl);
+			statusWrap.appendChild(this.dotEl);
+			statusWrap.appendChild(this.statusEl);
+			wrapper.appendChild(statusWrap);
 			return wrapper;
 		}
 
@@ -486,13 +510,17 @@ Module.register("MMM-GestureNav", {
 
 			const label = document.createElement("div");
 			label.className = "gn-label small";
-			label.textContent = this.status || "";
+			this.dotEl = document.createElement("span");
+			this.dotEl.className = "gn-dot";
+			this.labelEl = document.createElement("span");
+			this.labelEl.textContent = this.status || "";
+			label.appendChild(this.dotEl);
+			label.appendChild(this.labelEl);
 			box.appendChild(label);
 
 			this.previewWrapper = box;
 			this.vidHolder = vidHolder;
 			this.canvas = canvas;
-			this.labelEl = label;
 
 			if (this.video) this.attachPreview();
 		}
