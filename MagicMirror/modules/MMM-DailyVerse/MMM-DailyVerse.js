@@ -23,7 +23,15 @@ Module.register("MMM-DailyVerse", {
 			"Skolotāja: “Jānīt, kāpēc tu atkal kavē?”<br>Jānītis: “Ceļa zīme teica: skola priekšā, brauciet lēni.”",
 			"Optimistam glāze ir puspilna, pesimistam — pustukša.<br>Inženierim glāze ir divreiz par lielu.",
 			"Divi teļi runā par nākotni.<br>Viens saka: “Kaut kā man šī gaļas industrija nepatīk.”",
-			"— Ko tu dari? — Neko.<br>— Bet vakar tu jau to darīji! — Nebiju pabeidzis."
+			"— Ko tu dari? — Neko.<br>— Bet vakar tu jau to darīji! — Nebiju pabeidzis.",
+			"Aug ozols pie celiņa,<br>Zied ābele pie nama.",
+			"Ej, saulīte, drīz pie mums,<br>Mums tevis vajag.",
+			"Kas man deva labu prātu,<br>Tas man deva visu labu.",
+			"Rīta rasa, vakara rasa,<br>Abas manu ceļu slapinās.",
+			"— Kāpēc programmētājs sajauc Halovīnu ar Ziemassvētkiem?<br>— Jo OCT 31 = DEC 25.",
+			"IT atbalsts: “Vai esat mēģinājis to izslēgt un ieslēgt atpakaļ?”<br>Lietotājs: “Jā.” IT: “Nu tad vēlreiz.”",
+			"Meteorologs nekad nezaudē darbu —<br>vienmēr var teikt “nākamnedēļ būs skaidrāk”.",
+			"— Kāpēc grāmatvedis nekad neapmaldās?<br>— Viņam vienmēr sabalansēts."
 		]
 	},
 

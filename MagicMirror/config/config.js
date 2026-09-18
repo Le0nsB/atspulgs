@@ -153,10 +153,23 @@ let config = {
 			position: "lower_third",
 			config: {
 				compliments: {
-					anytime: ["Sveiks!", "Kā sokās?", "Viss bumbās", "¯\\_(ツ)_/¯", "ᕙ( ͡° ͜ʖ ͡°)ᕗ", "ಠ_ಠ"],
-					morning: ["Labrīt!", "Lai jauka diena!"],
-					afternoon: ["Izskaties lieliski!"],
-					evening: ["Kā pagāja diena?"]
+					anytime: [
+						"Sveiks!", "Kā sokās?", "Viss bumbās", "¯\\_(ツ)_/¯", "ᕙ( ͡° ͜ʖ ͡°)ᕗ", "ಠ_ಠ",
+						"Lieliski izskaties!", "٩(◕‿◕)۶", "Turies!", "(⌐■_■)", "Tu vari to izdarīt!",
+						"ʕ•ᴥ•ʔ", "Šodien ir tava diena!"
+					],
+					morning: [
+						"Labrīt!", "Lai jauka diena!", "Enerģijas pilna diena tev priekšā!",
+						"Kafija gaida ☕", "Celies un spīdi!"
+					],
+					afternoon: [
+						"Izskaties lieliski!", "Puse dienas jau aiz muguras!", "Turpini tāpat!",
+						"Laiks īsai pauzei?"
+					],
+					evening: [
+						"Kā pagāja diena?", "Atpūsties, esi pelnījis.", "Saldu nakti jau tuvojas.",
+						"Diena paveikta — labi padarīts!"
+					]
 				}
 			}
 		},
