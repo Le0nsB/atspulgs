@@ -1,0 +1,200 @@
+.mmm-routines {
+	max-width: 760px;
+	margin: 0 auto;
+	text-align: left;
+}
+
+.mmm-routines .rt-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	font-size: 15px;
+	margin-bottom: 6px;
+}
+
+.mmm-routines .rt-title {
+	font-size: 22px;
+}
+
+.mmm-routines .rt-meta {
+	font-size: 15px;
+	margin-bottom: 16px;
+}
+
+.mmm-routines .rt-empty {
+	font-size: 26px;
+	margin: 20px 0 8px;
+}
+
+.mmm-routines .rt-empty-hint {
+	font-size: 16px;
+}
+
+.mmm-routines .rt-list {
+	list-style: none;
+	counter-reset: rt;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.mmm-routines .rt-item {
+	counter-increment: rt;
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 10px 16px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.05);
+	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.mmm-routines .rt-item::before {
+	content: counter(rt);
+	flex: 0 0 auto;
+	width: 22px;
+	opacity: 0.45;
+	font-size: 16px;
+}
+
+/* Divu kadru demonstrācija: otrais attēls mirgo virs pirmā. */
+.mmm-routines .rt-anim {
+	position: relative;
+	flex: 0 0 auto;
+	width: 96px;
+	height: 64px;
+	overflow: hidden;
+	border-radius: 8px;
+	background: #000;
+}
+
+.mmm-routines .rt-anim img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.mmm-routines .rt-anim img + img {
+	animation: rt-flip 1.6s steps(1, end) infinite;
+}
+
+@keyframes rt-flip {
+	0% { opacity: 0; }
+	50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.mmm-routines .rt-anim img + img { animation: none; opacity: 0; }
+}
+
+.mmm-routines .rt-name {
+	flex: 1 1 auto;
+	font-size: 22px;
+	line-height: 1.25;
+}
+
+.mmm-routines .rt-detail {
+	flex: 0 0 auto;
+	font-size: 20px;
+	color: #7cccff;
+	white-space: nowrap;
+}
+
+.mmm-routines .rt-foot {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	margin-top: 16px;
+	font-size: 16px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+}
+
+.mmm-routines .rt-status.rt-awaiting_feedback {
+	color: #ffd479;
+}
+
+.mmm-routines .rt-status.rt-done {
+	color: #7aff96;
+}
+
+.mmm-routines .rt-hint {
+	margin-top: 14px;
+	letter-spacing: 0.5px;
+}
+
+/* --- jautājums, kas parādās, kad kāds pienāk pie spoguļa --- */
+
+.mmm-routines-overlay {
+	position: fixed;
+	left: 50%;
+	bottom: 10%;
+	z-index: 9990;
+	transform: translate(-50%, 24px);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 400ms ease, transform 400ms ease;
+}
+
+.mmm-routines-overlay.rtx-on {
+	opacity: 1;
+	transform: translate(-50%, 0);
+}
+
+.mmm-routines-overlay .rtx-card {
+	min-width: 420px;
+	max-width: 720px;
+	padding: 22px 30px;
+	text-align: center;
+	border-radius: 16px;
+	background: rgba(12, 12, 14, 0.82);
+	box-shadow: 0 0 0 1px rgba(124, 204, 255, 0.4), 0 0 26px rgba(124, 204, 255, 0.18);
+	backdrop-filter: blur(6px);
+}
+
+.mmm-routines-overlay .rtx-title {
+	font-size: 14px;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	opacity: 0.6;
+	margin-bottom: 8px;
+}
+
+.mmm-routines-overlay .rtx-question {
+	font-size: 30px;
+	line-height: 1.25;
+	color: #fff;
+}
+
+.mmm-routines-overlay .rtx-choices {
+	display: flex;
+	justify-content: center;
+	gap: 14px;
+	margin-top: 18px;
+}
+
+.mmm-routines-overlay .rtx-choice {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 10px 18px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.06);
+	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.mmm-routines-overlay .rtx-choice-label {
+	font-size: 20px;
+	color: #fff;
+}
+
+.mmm-routines-overlay .rtx-choice-say {
+	font-size: 13px;
+	opacity: 0.55;
+}
