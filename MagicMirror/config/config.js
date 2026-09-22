@@ -53,6 +53,13 @@ let config = {
 	timeFormat: 24,
 	units: "metric",
 
+	// `fullscreen` (noklusējums) uz labwc/Wayland (Bookworm) dažreiz pēc laika
+	// pazaudē pilnekrāna stāvokli un logs parādās kā parasts logs virs
+	// darbvirsmas/paneļa. `kiosk` compositor pusē tiek turēts stingrāk.
+	electronOptions: {
+		kiosk: true
+	},
+
 	modules: [
 		{
 			module: "alert",
