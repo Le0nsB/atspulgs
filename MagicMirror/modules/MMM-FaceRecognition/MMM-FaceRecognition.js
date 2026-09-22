@@ -21,6 +21,7 @@ Module.register("MMM-FaceRecognition", {
 		cameraWidth: 320,
 		cameraHeight: 240,
 		deviceId: null, // konkrētas kameras id (navigator.mediaDevices.enumerateDevices)
+		deviceLabel: null, // ... vai daļa no kameras nosaukuma (piem. "C270") — der uz jebkuras ierīces; deviceId to pārspēj
 
 		// --- apstrāde ---
 		// Klātbūtnei nevajag augstu FPS — taupa CPU/RAM uz Pi 5 (2 GB RAM).
@@ -51,7 +52,7 @@ Module.register("MMM-FaceRecognition", {
 	},
 
 	getStyles () {
-		return ["MMM-FaceRecognition.css"];
+		return ["font-awesome.css", "MMM-FaceRecognition.css"];
 	},
 
 	start () {
@@ -128,17 +129,43 @@ Module.register("MMM-FaceRecognition", {
 		});
 	},
 
+	// Kameras id ir citāds katrā ierīcē un pārlūka profilā (Mac ≠ Pi), tāpēc parasti ērtāk
+	// norādīt daļu no nosaukuma (`deviceLabel`). Nosaukumi pārlūkā ir redzami tikai pēc kameras
+	// atļaujas, tāpēc vajadzības gadījumā kameru uz mirkli atver tikai atļaujas iegūšanai.
+	async resolveDeviceId () {
+		if (this.config.deviceId) return this.config.deviceId;
+		const wanted = (this.config.deviceLabel || "").trim().toLowerCase();
+		if (!wanted) return null;
+
+		const listCameras = async () => (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
+		let cameras = await listCameras();
+		if (cameras.length && cameras.every((d) => !d.label)) {
+			const probe = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+			probe.getTracks().forEach((t) => t.stop());
+			cameras = await listCameras();
+		}
+
+		const match = cameras.find((d) => d.label.toLowerCase().includes(wanted));
+		if (!match) {
+			Log.warn(`MMM-FaceRecognition: nav kameras, kuras nosaukumā ir "${wanted}" (pieejamas: ${cameras.map((d) => d.label || "?").join(", ") || "nav"}), izmantoju noklusējuma kameru`);
+		}
+		return match ? match.deviceId : null;
+	},
+
 	async startCamera () {
 		const video = { width: { ideal: this.config.cameraWidth }, height: { ideal: this.config.cameraHeight } };
+		// Ja nosaukuma meklēšana neizdodas (piem. atļauja liegta), turpinām ar noklusējuma kameru —
+		// īsto kļūdu tad nomet getUserMedia zemāk.
+		const deviceId = await this.resolveDeviceId().catch(() => null);
 
 		try {
 			this.stream = await navigator.mediaDevices.getUserMedia({
 				audio: false,
-				video: this.config.deviceId ? { ...video, deviceId: { exact: this.config.deviceId } } : video
+				video: deviceId ? { ...video, deviceId: { exact: deviceId } } : video
 			});
 		} catch (error) {
-			if (!this.config.deviceId) throw error;
-			Log.warn(`MMM-FaceRecognition: kamera ${this.config.deviceId} nav pieejama (${error.message}), izmantoju nākamo pieejamo kameru`);
+			if (!deviceId) throw error;
+			Log.warn(`MMM-FaceRecognition: kamera ${deviceId} nav pieejama (${error.message}), izmantoju nākamo pieejamo kameru`);
 			this.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video });
 		}
 
@@ -264,6 +291,8 @@ Module.register("MMM-FaceRecognition", {
 
 		this.setLabel(state === "present" ? "klāt → ekrāns ieslēgts" : "prom → ekrāns izslēgts");
 		if (notification) this.sendNotification(notification, payload);
+		// Neatkarīgi no ekrāna vadības — ļauj citiem moduļiem (piem. MMM-Routines) reaģēt uz klātbūtni.
+		this.sendNotification(state === "present" ? "FACE_PRESENT" : "FACE_ABSENT");
 		if (this.config.debug) Log.log(`MMM-FaceRecognition -> ${state} (${notification})`, payload);
 	},
 
@@ -295,12 +324,12 @@ Module.register("MMM-FaceRecognition", {
 	setLabel (text) {
 		const value = text || "aktīvs";
 		if (this.labelEl) this.labelEl.textContent = value;
-		if (this.statusEl) this.statusEl.textContent = `🧑 ${value}`;
+		if (this.statusEl) this.statusEl.textContent = value;
 	},
 
 	renderStatus () {
 		if (this.labelEl) this.labelEl.textContent = this.status;
-		if (this.statusEl) this.statusEl.textContent = `🧑 ${this.status}`;
+		if (this.statusEl) this.statusEl.textContent = this.status;
 	},
 
 	// state: "idle" (nav sejas), "present" (seja konstatēta), "error"
@@ -321,9 +350,12 @@ Module.register("MMM-FaceRecognition", {
 			statusWrap.className = "fr-status";
 			this.dotEl = document.createElement("span");
 			this.dotEl.className = "fr-dot";
+			const statusIcon = document.createElement("i");
+			statusIcon.className = "fa-solid fa-user fr-status-icon";
 			this.statusEl = document.createElement("span");
-			this.statusEl.textContent = `🧑 ${this.status || ""}`;
+			this.statusEl.textContent = this.status || "";
 			statusWrap.appendChild(this.dotEl);
+			statusWrap.appendChild(statusIcon);
 			statusWrap.appendChild(this.statusEl);
 			wrapper.appendChild(statusWrap);
 			return wrapper;

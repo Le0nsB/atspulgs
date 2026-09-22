@@ -1,5 +1,9 @@
 .mmm-spotifydetail {
 	max-width: 1040px;
+	margin: 0 auto;
+	/* Noklusējuma (Spotify zaļā) akcentkrāsa — JS to aizstāj ar krāsu, kas
+	   iegūta no pašreizējā albuma vāciņa (skat. extractAccentColor). */
+	--sd-accent: #1db954;
 }
 
 .sd-layout {
@@ -28,7 +32,8 @@
 	flex-shrink: 0;
 	border-radius: 50%;
 	background: radial-gradient(circle, #1b1b1b 0%, #1b1b1b 30%, #0a0a0a 31%, #0a0a0a 100%);
-	box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.06);
+	box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.06), 0 0 28px -6px var(--sd-accent);
+	transition: box-shadow 0.6s ease;
 	animation: sd-spin 18s linear infinite;
 	animation-play-state: paused;
 }
@@ -126,7 +131,8 @@
 
 .sd-bar-fill {
 	height: 100%;
-	background: #1db954;
+	background: var(--sd-accent);
+	transition: background-color 0.6s ease;
 }
 
 .sd-time {
@@ -136,8 +142,25 @@
 /* --- Rinda un vārdi --- */
 
 .sd-heading {
+	display: flex;
+	align-items: center;
+	gap: 6px;
 	letter-spacing: 0.08em;
 	margin-bottom: 8px;
+}
+
+.sd-heading::before {
+	content: "";
+	width: 6px;
+	height: 6px;
+	flex-shrink: 0;
+	border-radius: 50%;
+	background: var(--sd-accent);
+	transition: background-color 0.6s ease;
+}
+
+.sd-center .sd-heading {
+	justify-content: center;
 }
 
 .sd-queue {
@@ -202,4 +225,26 @@
 .sd-lyric-active {
 	color: #fff;
 	font-weight: bold;
+	text-shadow: 0 0 14px var(--sd-accent);
+}
+
+/* --- Tukšie/kļūdas stāvokļi --- */
+
+.sd-placeholder {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+	max-width: 320px;
+	margin: 18px auto;
+	padding: 26px 30px;
+	border-radius: 14px;
+	background: rgba(255, 255, 255, 0.04);
+	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+	text-align: center;
+}
+
+.sd-placeholder-icon {
+	font-size: 30px;
+	opacity: 0.7;
 }

@@ -6,7 +6,7 @@ sinhroni izceļas atskaņošanas laikā ("live lyrics").
 
 Izmanto tos pašus akreditācijas datus kā **MMM-SpotifyNowPlaying** — skat.
 tā README.md par `clientId`/`clientSecret`/`refreshToken` iegūšanu
-(`config/secrets.js`). Šis modulis ir neatkarīgs (savs `node_helper`, savs
+(`MagicMirror/secrets.js`; modulim `config` tie NAV jānorāda). Šis modulis ir neatkarīgs (savs `node_helper`, savs
 Spotify vaicājumu cikls), tāpēc to var pievienot/noņemt bez ietekmes uz
 mazo "now playing" widget'u.
 
@@ -21,19 +21,12 @@ atrasti".
 {
 	module: "MMM-SpotifyDetail",
 	position: "middle_center",
-	config: {
-		clientId: secrets.spotify.clientId,
-		clientSecret: secrets.spotify.clientSecret,
-		refreshToken: secrets.spotify.refreshToken
-	}
+	config: {}
 }
 ```
 
 | Opcija | Noklusējums | Apraksts |
 |---|---|---|
-| `clientId` | `""` | Spotify lietotnes Client ID |
-| `clientSecret` | `""` | Spotify lietotnes Client Secret |
-| `refreshToken` | `""` | Refresh token (skat. MMM-SpotifyNowPlaying README) |
 | `updateInterval` | `15000` | Cik bieži (ms) vaicāt Spotify (min. 5000) |
 | `queueLimit` | `5` | Cik nākamās dziesmas rādīt |
 | `showLyrics` | `true` | Rādīt dziesmas vārdus |

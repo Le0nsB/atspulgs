@@ -25,15 +25,16 @@ SPOTIFY_CLIENT_ID=tavs_id SPOTIFY_CLIENT_SECRET=tavs_secret npm run get-token
 Atvērsies pārlūks, autorizē piekļuvi, un terminālī tiks izdrukāts
 **refresh token**. Tas nemainās — saglabā to.
 
-## 3. Ieraksti atslēgas config/secrets.js
+## 3. Ieraksti atslēgas MagicMirror/secrets.js
 
-Atslēgas glabājas atsevišķi, lai tās nenokļūtu git repozitorijā:
+Atslēgas glabājas atsevišķā failā, lai tās nenokļūtu git repozitorijā:
 
 ```bash
-cp config/secrets.js.sample config/secrets.js
+cd ~/MagicMirror        # mape, kurā ir package.json
+cp secrets.js.sample secrets.js
 ```
 
-Aizpildi `config/secrets.js`:
+Aizpildi `secrets.js`:
 
 ```js
 module.exports = {
@@ -45,16 +46,20 @@ module.exports = {
 };
 ```
 
-`config.js` jau automātiski nolasa šīs vērtības (`secrets.spotify.*`).
-`config/secrets.js` ir izslēgts no git, tāpēc atslēgas paliek tikai uz tavas iekārtas.
+**Svarīgi — fails NEDRĪKST būt mapē `config/`.** MagicMirror atdod `config/` un
+`modules/` pa HTTP kā statiskus failus, t.i. jebkura ierīce tīklā varētu atvērt
+`http://<pi-ip>:8080/config/secrets.js`. Arī moduļa `config` iekšā atslēgas
+nedrīkst likt: MagicMirror visu konfigurāciju atdod pārlūkam (`/config`,
+`/api/config`). Tāpēc atslēgas ielasa tikai moduļa `node_helper` (servera puse)
+no `secrets.js`, kas atrodas projekta saknē. `secrets.js` ir izslēgts no git.
+
+(Vecais ceļš `config/secrets.js` vēl strādā, bet `node_helper` brīdina žurnālā,
+ka fails ir lejupielādējams — pārvieto to.)
 
 ## Konfigurācijas opcijas
 
 | Opcija | Noklusējums | Apraksts |
 |---|---|---|
-| `clientId` | `""` | Spotify lietotnes Client ID |
-| `clientSecret` | `""` | Spotify lietotnes Client Secret |
-| `refreshToken` | `""` | Ar `get-token` iegūtais refresh token |
 | `updateInterval` | `15000` | Cik bieži (ms) vaicāt Spotify (min. 5000) |
 | `showAlbumArt` | `true` | Rādīt albuma vāciņu |
 | `showProgress` | `true` | Rādīt atskaņošanas joslu un laiku |
@@ -100,7 +105,7 @@ sūta šīs notifikācijas — piem.:
   cd modules/MMM-SpotifyNowPlaying
   SPOTIFY_CLIENT_ID=tavs_id SPOTIFY_CLIENT_SECRET=tavs_secret npm run get-token
   ```
-  un ieliec jauno `refreshToken` `config/secrets.js`.
+  un ieliec jauno `refreshToken` `secrets.js` (projekta saknē).
 
 ## Piezīmes
 

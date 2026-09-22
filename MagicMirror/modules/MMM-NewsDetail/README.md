@@ -31,4 +31,4 @@ virsraksts un pilns kopsavilkums (to, ko `bottom_bar` vienrindas josla nerāda).
 | `maxDescriptionChars` | `0` | `0` = viss teksts; citādi apgriež ar „…" |
 | `nextNotification` | `"NEWSDETAIL_NEXT"` | Notifikācija „nākamā ziņa" |
 | `prevNotification` | `"NEWSDETAIL_PREV"` | Notifikācija „iepriekšējā ziņa" |
-| `hint` | `"✊ = nākamā ziņa"` | Palīgteksts apakšā |
+| `hint` | `"= nākamā ziņa"` | Palīgteksts apakšā (rādīts blakus fiksētai dūres ikonai) |

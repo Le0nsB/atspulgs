@@ -26,7 +26,7 @@ Module.register("MMM-Routines", {
 	},
 
 	getStyles () {
-		return ["MMM-Routines.css"];
+		return ["font-awesome.css", "MMM-Routines.css"];
 	},
 
 	start () {
@@ -96,15 +96,39 @@ Module.register("MMM-Routines", {
 		if (w.status === "pending") return "Gaida izpildi";
 		if (w.status === "awaiting_feedback") return "Pabeigts — kā veicās?";
 		const fb = this.feedbackLabel(w.feedback);
-		return fb ? `✓ Pabeigts · bija ${fb}` : "✓ Pabeigts";
+		return fb ? `Pabeigts · bija ${fb}` : "Pabeigts";
+	},
+
+	buildLevelMeter (level, maxLevel) {
+		const wrap = this.el("div", "rt-level");
+		wrap.appendChild(this.el("span", "rt-level-label dimmed", `Līmenis ${level}`));
+		const meter = this.el("div", "rt-level-meter");
+		for (let i = 1; i <= maxLevel; i++) {
+			const filled = i <= level;
+			const seg = this.el("span", filled ? "rt-level-seg rt-level-filled" : "rt-level-seg");
+			if (i === level) seg.classList.add("rt-level-current");
+			meter.appendChild(seg);
+		}
+		wrap.appendChild(meter);
+		return wrap;
+	},
+
+	buildPlaceholder (iconClass, lines) {
+		const box = this.el("div", "rt-placeholder");
+		box.appendChild(this.el("i", `fa-solid ${iconClass} rt-placeholder-icon`));
+		for (const line of lines) {
+			box.appendChild(this.el("div", line.className, line.text));
+		}
+		return box;
 	},
 
 	getDom () {
 		const wrapper = this.el("div", "mmm-routines");
 
 		if (!this.routines) {
-			wrapper.classList.add("dimmed", "light", "small");
-			wrapper.textContent = "Ielādē treniņu…";
+			wrapper.appendChild(this.buildPlaceholder("fa-dumbbell", [
+				{ className: "rt-placeholder-text dimmed light small", text: "Ielādē treniņu…" }
+			]));
 			return wrapper;
 		}
 
@@ -113,21 +137,26 @@ Module.register("MMM-Routines", {
 
 		const head = this.el("div", "rt-head");
 		head.appendChild(this.el("span", "rt-title bright", "Šodienas treniņš"));
-		head.appendChild(this.el("span", "rt-level dimmed", `Līmenis ${level} / ${maxLevel}`));
+		head.appendChild(this.buildLevelMeter(level, maxLevel));
 		wrapper.appendChild(head);
 
 		if (!w) {
-			wrapper.appendChild(this.el("div", "rt-empty light", "Vēl nav izvēlēts, ko trenēt."));
+			const lines = [{ className: "rt-placeholder-text light", text: "Vēl nav izvēlēts, ko trenēt." }];
 			if (phoneUrl) {
-				wrapper.appendChild(this.el("div", "rt-empty-hint dimmed", `Atver telefonā un izvēlies: ${phoneUrl}`));
+				lines.push({ className: "rt-placeholder-hint dimmed", text: `Atver telefonā un izvēlies: ${phoneUrl}` });
 			}
+			wrapper.appendChild(this.buildPlaceholder("fa-clipboard-list", lines));
 			return wrapper;
 		}
 
-		const meta = this.el("div", "rt-meta dimmed");
-		const targets = this.labelsFor(w.targets, options.targets).join(" · ");
-		const equipment = w.equipment.length ? this.labelsFor(w.equipment, options.equipment).join(", ") : "bez inventāra";
-		meta.textContent = `${targets} — ${equipment}`;
+		const meta = this.el("div", "rt-meta");
+		for (const t of this.labelsFor(w.targets, options.targets)) {
+			meta.appendChild(this.el("span", "rt-chip rt-chip-target", t));
+		}
+		const equipLabels = w.equipment.length ? this.labelsFor(w.equipment, options.equipment) : ["Bez inventāra"];
+		for (const e of equipLabels) {
+			meta.appendChild(this.el("span", "rt-chip rt-chip-equipment", e));
+		}
 		wrapper.appendChild(meta);
 
 		const list = this.el("ol", "rt-list");
@@ -152,6 +181,7 @@ Module.register("MMM-Routines", {
 
 		const foot = this.el("div", "rt-foot");
 		const status = this.el("span", `rt-status rt-${w.status}`, this.statusLine(w));
+		if (w.status === "done") status.prepend(this.el("i", "fa-solid fa-circle-check rt-status-icon"));
 		foot.appendChild(status);
 		foot.appendChild(this.el("span", "rt-rest dimmed", `Atpūta starp sērijām: ${w.restSeconds} s`));
 		wrapper.appendChild(foot);

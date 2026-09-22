@@ -74,12 +74,20 @@ Module.register("MMM-VoiceCommands", {
 			{ phrases: ["nākamā dziesma", "cita dziesma"], notification: "SPOTIFY_NEXT", label: "Nākamā dziesma" },
 			{ phrases: ["iepriekšējā dziesma", "iepriekšēja dziesma"], notification: "SPOTIFY_PREV", label: "Iepriekšējā dziesma" },
 			{ phrases: ["skaļāk"], notification: "SPOTIFY_VOLUME_UP", label: "Skaļāk" },
-			{ phrases: ["klusāk"], notification: "SPOTIFY_VOLUME_DOWN", label: "Klusāk" }
+			{ phrases: ["klusāk"], notification: "SPOTIFY_VOLUME_DOWN", label: "Klusāk" },
+
+			// --- treniņi (skat. MMM-Routines; atbild uz spoguļa jautājumu) ---
+			{ phrases: ["parādi treniņu", "rādi treniņu", "treniņa lapa"], notification: "PAGES_GOTO", payload: 5, label: "Treniņš" },
+			{ phrases: ["treniņš pabeigts", "treniņu pabeidzu", "treniņš izdarīts", "izdarīju treniņu"], notification: "ROUTINES_COMPLETE", label: "Treniņš pabeigts" },
+			{ phrases: ["vēl ne", "treniņš nav pabeigts", "treniņš vēl nav"], notification: "ROUTINES_DISMISS", label: "Treniņš vēl nav" },
+			{ phrases: ["par vieglu", "pārāk viegls", "bija viegls", "viegls"], notification: "ROUTINES_FEEDBACK", payload: "easy", label: "Treniņš: par vieglu" },
+			{ phrases: ["tieši laikā", "tieši labi", "normāli", "vidēji"], notification: "ROUTINES_FEEDBACK", payload: "ok", label: "Treniņš: tieši laikā" },
+			{ phrases: ["par grūtu", "pārāk grūts", "bija grūts", "grūts"], notification: "ROUTINES_FEEDBACK", payload: "hard", label: "Treniņš: par grūtu" }
 		]
 	},
 
 	getStyles () {
-		return ["MMM-VoiceCommands.css"];
+		return ["font-awesome.css", "MMM-VoiceCommands.css"];
 	},
 
 	start () {
@@ -95,6 +103,7 @@ Module.register("MMM-VoiceCommands", {
 		this.errorBackoff = 0;
 		this.cooldownUntil = 0;
 		this.status = "";
+		this.statusIcon = null;
 		this.lastTranscript = "";
 		this.lastCmdId = null;
 		this.overlay = null;
@@ -242,7 +251,7 @@ Module.register("MMM-VoiceCommands", {
 			text: p.text
 		});
 		this.flashGlow("confirm");
-		this.setStatus(`✓ ${p.label || p.notification}`, 2500);
+		this.setStatus(p.label || p.notification, 2500, "fa-check");
 		this.updateDom();
 	},
 
@@ -608,13 +617,15 @@ Module.register("MMM-VoiceCommands", {
 
 	/* ------------------------------ statuss ------------------------------ */
 
-	setStatus (text, autoClearMs) {
+	setStatus (text, autoClearMs, icon) {
 		this.status = text;
+		this.statusIcon = icon || null;
 		this.updateDom();
 		clearTimeout(this.statusResetTimer);
 		if (autoClearMs && autoClearMs > 0) {
 			this.statusResetTimer = setTimeout(() => {
 				this.status = "";
+				this.statusIcon = null;
 				this.updateDom();
 			}, autoClearMs);
 		}
@@ -636,6 +647,12 @@ Module.register("MMM-VoiceCommands", {
 			role.className = "vc-role";
 			role.textContent = `[${this.role}]`;
 			wrapper.appendChild(role);
+		}
+
+		if (this.status && this.statusIcon) {
+			const statusIconEl = document.createElement("i");
+			statusIconEl.className = `fa-solid ${this.statusIcon} vc-status-icon`;
+			wrapper.appendChild(statusIconEl);
 		}
 
 		const label = document.createElement("span");

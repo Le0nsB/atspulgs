@@ -5,6 +5,33 @@
  */
 const NodeHelper = require("node_helper");
 const Log = require("logger");
+const fs = require("node:fs");
+const path = require("node:path");
+
+// Spotify akreditācijas dati tiek lasīti TIKAI šeit, servera pusē, no MagicMirror/secrets.js.
+// Tie nedrīkst nonākt modulī `config` (to MagicMirror atdod pārlūkam caur /config un
+// /api/config) un nedrīkst atrasties mapē config/ vai modules/ (tās MagicMirror atdod pa HTTP
+// kā statiskus failus, t.i. http://<pi-ip>:8080/config/secrets.js būtu lejupielādējams).
+// (Šī funkcija ir apzināti dublēta MMM-SpotifyNowPlaying un MMM-SpotifyDetail — moduļi ir neatkarīgi.)
+function loadSpotifyCredentials () {
+	const root = path.resolve(__dirname, "..", "..");
+	const candidates = [path.join(root, "secrets.js"), path.join(root, "config", "secrets.js")];
+	for (const file of candidates) {
+		if (!fs.existsSync(file)) continue;
+		if (file.includes(`${path.sep}config${path.sep}`)) {
+			Log.warn(`MMM-SpotifyNowPlaying: ${file} ir lejupielādējams no tīkla (http://<ip>:8080/config/secrets.js) — pārvieto to uz ${candidates[0]}`);
+		}
+		try {
+			const { clientId, clientSecret, refreshToken } = require(file).spotify || {};
+			return clientId && clientSecret && refreshToken ? { clientId, clientSecret, refreshToken } : null;
+		} catch (error) {
+			Log.error(`MMM-SpotifyNowPlaying: neizdevās ielasīt ${file}: ${error.message}`);
+			return null;
+		}
+	}
+	return null;
+}
+
 
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
 const NOW_PLAYING_URL = "https://api.spotify.com/v1/me/player/currently-playing";
@@ -24,7 +51,13 @@ module.exports = NodeHelper.create({
 
 	socketNotificationReceived (notification, payload) {
 		if (notification === "SPOTIFY_CONFIG") {
-			this.config = payload;
+			const credentials = loadSpotifyCredentials();
+			if (!credentials) {
+				this.config = null;
+				this.sendSocketNotification("SPOTIFY_NO_CREDENTIALS");
+				return;
+			}
+			this.config = { ...payload, ...credentials };
 			this.failures = 0;
 			this.poll(); // pats ieplāno nākamo vaicājumu
 		} else if (notification === "SPOTIFY_POLL_NOW") {

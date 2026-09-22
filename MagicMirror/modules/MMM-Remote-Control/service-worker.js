@@ -1,4 +1,4 @@
-const CACHE_NAME = "mmm-remote-control-v4.8.2-basepath";
+const CACHE_NAME = "mmm-remote-control-v4.8.2-basepath-links";
 const urlsToCache = [
   "./remote.html",
   "./css/main.css",

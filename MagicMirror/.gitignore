@@ -59,6 +59,8 @@ Temporary Items
 
 # Ignore users config file but keep the samples.
 config
+# Privātās atslēgas (skat. secrets.js.sample) — nekad git
+/secrets.js
 !config/config.js.sample
 !config/custom.css.sample
 

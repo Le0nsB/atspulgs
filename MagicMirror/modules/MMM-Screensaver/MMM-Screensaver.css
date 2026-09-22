@@ -41,23 +41,35 @@
 	height: 100%;
 }
 
-/* --- Digitālais pulkstenis --- */
+/* --- Digitālais pulkstenis (LCD septiņu segmentu burti) --- */
+
+/* DSEG7 Classic Bold, SIL Open Font License 1.1 (fonts/DSEG-LICENSE.txt).
+   Fonts ir lokāls, lai pulkstenis izskatās vienādi arī bez interneta. */
+@font-face {
+	font-family: "DSEG7 Classic";
+	src: url("fonts/DSEG7Classic-Bold.woff2") format("woff2");
+	font-weight: bold;
+	font-style: normal;
+	font-display: block;
+}
 
 .ss-face-clock {
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	font-family: "Courier New", monospace;
 }
 
 .ss-clock-time {
-	font-size: 16vw;
+	font-family: "DSEG7 Classic", "Courier New", monospace;
+	font-size: 12vw; /* LCD burti ir platāki par Courier — 16vw neietilptu ar sekundēm */
 	font-weight: bold;
 	letter-spacing: 0.03em;
 	line-height: 1;
 }
 
+/* DSEG nesatur latviešu burtus, tāpēc datumam parasts fonts. */
 .ss-clock-date {
+	font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
 	margin-top: 1.2vw;
 	font-size: 2.4vw;
 	text-transform: capitalize;

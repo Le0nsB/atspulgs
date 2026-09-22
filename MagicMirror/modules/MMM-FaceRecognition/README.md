@@ -25,6 +25,8 @@ daudz drošāka — nav ko noplūst.
 - Pie katras pārejas modulis sūta notifikāciju (pēc noklusējuma
   `REMOTE_ACTION` ar `MONITORON`/`MONITOROFF`) — **pašu ekrānu izslēdz
   MMM-Remote-Control**, ne šis modulis.
+- Papildus vienmēr tiek raidītas `FACE_PRESENT` / `FACE_ABSENT` (bez payload),
+  lai citi moduļi var reaģēt uz klātbūtni (piem. MMM-Routines jautā par treniņu).
 
 ## Uzstādīšana
 
@@ -79,7 +81,8 @@ palaišanas reizē (macOS: *System Settings → Privacy & Security → Camera*).
 | Opcija | Nokl. | Nozīme |
 | --- | --- | --- |
 | `cameraWidth` / `cameraHeight` | `320` / `240` | pieprasītā kameras izšķirtspēja (zemāka nekā GestureNav — klātbūtnei nevajag daudz) |
-| `deviceId` | `null` | konkrētas kameras id (`navigator.mediaDevices.enumerateDevices()`) |
+| `deviceLabel` | `null` | daļa no kameras nosaukuma (reģistrnejutīgi), piem. `"C270"` — **ieteicamais veids**, jo der gan uz Mac, gan uz Pi. Ja tāda nav, izmanto noklusējuma kameru (un brīdina konsolē ar pieejamo kameru sarakstu) |
+| `deviceId` | `null` | konkrētas kameras id (`navigator.mediaDevices.enumerateDevices()`); ir citāds katrā ierīcē/profilā un pārspēj `deviceLabel` |
 | `processingFps` | `2` | kadru analīzes biežums (klātbūtnei pietiek ar zemu — taupa CPU/RAM uz Pi 5) |
 | `analysisWidth` | `192` | uz cik px platu samazina kadru pirms analīzes |
 | `delegate` | `"CPU"` | `"CPU"` vai `"GPU"` (inference). Abiem vajag WebGL. |

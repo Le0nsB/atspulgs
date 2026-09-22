@@ -1,8 +1,8 @@
 /* MagicMirror² Module: MMM-SpotifyNowPlaying
  *
  * Rāda, kāda Spotify dziesma pašlaik skan tavā kontā. Datus iegūst
- * node_helper caur Spotify Web API (nepieciešams clientId, clientSecret
- * un refreshToken — skat. README.md).
+ * node_helper caur Spotify Web API — akreditācijas dati nāk no
+ * MagicMirror/secrets.js (skat. README.md), klientam tie netiek sūtīti.
  *
  * Starp Spotify vaicājumiem atskaņošanas josla un laiks turpina "tikt"
  * lokāli (reizi sekundē), lai izskatītos dzīvi. Katrs jauns vaicājums
@@ -10,9 +10,6 @@
  */
 Module.register("MMM-SpotifyNowPlaying", {
 	defaults: {
-		clientId: "",
-		clientSecret: "",
-		refreshToken: "",
 		updateInterval: 15 * 1000, // cik bieži vaicāt Spotify (ms)
 		showAlbumArt: true,
 		showProgress: true,
@@ -33,7 +30,7 @@ Module.register("MMM-SpotifyNowPlaying", {
 	},
 
 	getStyles () {
-		return ["MMM-SpotifyNowPlaying.css"];
+		return ["font-awesome.css", "MMM-SpotifyNowPlaying.css"];
 	},
 
 	start () {
@@ -45,15 +42,16 @@ Module.register("MMM-SpotifyNowPlaying", {
 		this.timeEl = null;
 		this.controlMessage = null; // īslaicīgs kļūdas teksts pēc neveiksmīgas vadības
 
-		if (!this.config.clientId || !this.config.clientSecret || !this.config.refreshToken) {
-			this.hasError = "config"; // trūkst akreditācijas datu
-			this.updateDom();
-			return;
-		}
+		// Akreditācijas datus (secrets.js) ielasa tikai node_helper — klientam tie netiek sūtīti.
 		this.sendSocketNotification("SPOTIFY_CONFIG", this.config);
 	},
 
 	socketNotificationReceived (notification, payload) {
+		if (notification === "SPOTIFY_NO_CREDENTIALS") {
+			this.hasError = "config";
+			this.updateDom();
+			return;
+		}
 		if (notification === "SPOTIFY_PLAYING") {
 			this.hasError = false;
 			this.track = payload; // var būt null, ja nekas neskan
@@ -157,13 +155,16 @@ Module.register("MMM-SpotifyNowPlaying", {
 
 		if (this.hasError === "config") {
 			wrapper.className += " dimmed light";
-			wrapper.innerHTML = "MMM-SpotifyNowPlaying: trūkst clientId/clientSecret/refreshToken";
+			wrapper.innerHTML = "MMM-SpotifyNowPlaying: trūkst Spotify atslēgu (MagicMirror/secrets.js)";
 			return wrapper;
 		}
 
 		if (this.controlMessage) {
 			wrapper.className += " dimmed light small";
-			wrapper.innerHTML = `🎵 ${this.controlMessage}`;
+			const icon = document.createElement("i");
+			icon.className = "fa-solid fa-music mmm-spotify-control-icon";
+			wrapper.appendChild(icon);
+			wrapper.appendChild(document.createTextNode(` ${this.controlMessage}`));
 			return wrapper;
 		}
 

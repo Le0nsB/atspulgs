@@ -4,7 +4,7 @@ Pilnekrāna ekrānsaudzētājs priekš MagicMirror² ar **vairākām "sejām"**,
 rotē cita pēc citas, kamēr ekrāns ir neaktīvs:
 
 1. **Matrix** — krītošs zaļš digitālais lietus.
-2. **Pulkstenis** — liels digitālais pulkstenis ar datumu.
+2. **Pulkstenis** — liels digitālais pulkstenis ar datumu, LCD septiņu segmentu burtiem (DSEG7 Classic, SIL OFL — `fonts/`).
 3. **Ikosaedrs** — lēni rotējošs 3D stiepļu karkass.
 
 Pēc noteikta neaktivitātes laika (pēc noklusējuma 1 minūte) aizsedz visu

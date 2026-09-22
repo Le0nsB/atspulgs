@@ -7,28 +7,111 @@
 .mmm-routines .rt-head {
 	display: flex;
 	justify-content: space-between;
-	align-items: baseline;
+	align-items: center;
 	text-transform: uppercase;
 	letter-spacing: 1px;
 	font-size: 15px;
-	margin-bottom: 6px;
+	margin-bottom: 14px;
 }
 
 .mmm-routines .rt-title {
 	font-size: 22px;
 }
 
+.mmm-routines .rt-title::before {
+	content: "";
+	display: inline-block;
+	width: 6px;
+	height: 6px;
+	margin-right: 8px;
+	border-radius: 50%;
+	background: #7cccff;
+	box-shadow: 0 0 6px rgba(124, 204, 255, 0.6);
+}
+
+.mmm-routines .rt-level {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	text-transform: none;
+	letter-spacing: normal;
+}
+
+.mmm-routines .rt-level-label {
+	font-size: 14px;
+	white-space: nowrap;
+}
+
+.mmm-routines .rt-level-meter {
+	display: flex;
+	gap: 3px;
+}
+
+.mmm-routines .rt-level-seg {
+	width: 12px;
+	height: 5px;
+	border-radius: 3px;
+	background: rgba(255, 255, 255, 0.12);
+}
+
+.mmm-routines .rt-level-seg.rt-level-filled {
+	background: #7cccff;
+}
+
+.mmm-routines .rt-level-seg.rt-level-current {
+	box-shadow: 0 0 6px rgba(124, 204, 255, 0.8);
+}
+
 .mmm-routines .rt-meta {
-	font-size: 15px;
-	margin-bottom: 16px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 18px;
 }
 
-.mmm-routines .rt-empty {
-	font-size: 26px;
-	margin: 20px 0 8px;
+.mmm-routines .rt-chip {
+	padding: 4px 12px;
+	border-radius: 999px;
+	font-size: 14px;
+	white-space: nowrap;
 }
 
-.mmm-routines .rt-empty-hint {
+.mmm-routines .rt-chip-target {
+	background: rgba(124, 204, 255, 0.12);
+	box-shadow: 0 0 0 1px rgba(124, 204, 255, 0.3);
+	color: #bfe4ff;
+}
+
+.mmm-routines .rt-chip-equipment {
+	background: rgba(255, 255, 255, 0.05);
+	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+	opacity: 0.75;
+}
+
+.mmm-routines .rt-placeholder {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+	max-width: 360px;
+	margin: 18px auto;
+	padding: 26px 30px;
+	border-radius: 14px;
+	background: rgba(255, 255, 255, 0.04);
+	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+	text-align: center;
+}
+
+.mmm-routines .rt-placeholder-icon {
+	font-size: 30px;
+	opacity: 0.7;
+}
+
+.mmm-routines .rt-placeholder-text {
+	font-size: 22px;
+}
+
+.mmm-routines .rt-placeholder-hint {
 	font-size: 16px;
 }
 
@@ -46,30 +129,33 @@
 	counter-increment: rt;
 	display: flex;
 	align-items: center;
-	gap: 14px;
-	padding: 10px 16px;
-	border-radius: 10px;
-	background: rgba(255, 255, 255, 0.05);
+	gap: 16px;
+	padding: 12px 18px;
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.04);
 	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+	transition: box-shadow 300ms ease;
 }
 
 .mmm-routines .rt-item::before {
 	content: counter(rt);
 	flex: 0 0 auto;
 	width: 22px;
-	opacity: 0.45;
+	opacity: 0.4;
 	font-size: 16px;
+	text-align: center;
 }
 
-/* Divu kadru demonstrācija: otrais attēls mirgo virs pirmā. */
+/* Divu kadru demonstrācija: kadri lēni pārklājas (nevis "cērtas"). */
 .mmm-routines .rt-anim {
 	position: relative;
 	flex: 0 0 auto;
-	width: 96px;
-	height: 64px;
+	width: 108px;
+	height: 72px;
 	overflow: hidden;
-	border-radius: 8px;
+	border-radius: 10px;
 	background: #000;
+	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .mmm-routines .rt-anim img {
@@ -81,11 +167,11 @@
 }
 
 .mmm-routines .rt-anim img + img {
-	animation: rt-flip 1.6s steps(1, end) infinite;
+	animation: rt-flip 2.6s ease-in-out infinite;
 }
 
 @keyframes rt-flip {
-	0% { opacity: 0; }
+	0%, 100% { opacity: 0; }
 	50% { opacity: 1; }
 }
 
@@ -101,27 +187,54 @@
 
 .mmm-routines .rt-detail {
 	flex: 0 0 auto;
-	font-size: 20px;
-	color: #7cccff;
+	font-size: 16px;
+	font-weight: bold;
+	color: #bfe4ff;
 	white-space: nowrap;
+	padding: 5px 14px;
+	border-radius: 999px;
+	background: rgba(124, 204, 255, 0.12);
+	box-shadow: 0 0 0 1px rgba(124, 204, 255, 0.3);
 }
 
 .mmm-routines .rt-foot {
 	display: flex;
 	justify-content: space-between;
-	align-items: baseline;
-	margin-top: 16px;
-	font-size: 16px;
+	align-items: center;
+	margin-top: 18px;
+	font-size: 15px;
+}
+
+.mmm-routines .rt-status {
+	padding: 5px 14px;
+	border-radius: 999px;
 	text-transform: uppercase;
-	letter-spacing: 1px;
+	letter-spacing: 0.05em;
+	font-size: 13px;
+	background: rgba(255, 255, 255, 0.06);
+	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
 .mmm-routines .rt-status.rt-awaiting_feedback {
 	color: #ffd479;
+	background: rgba(255, 212, 121, 0.12);
+	box-shadow: 0 0 0 1px rgba(255, 212, 121, 0.35);
 }
 
 .mmm-routines .rt-status.rt-done {
 	color: #7aff96;
+	background: rgba(122, 255, 150, 0.12);
+	box-shadow: 0 0 0 1px rgba(122, 255, 150, 0.35);
+}
+
+.mmm-routines .rt-status-icon {
+	margin-right: 5px;
+}
+
+.mmm-routines .rt-rest {
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	font-size: 13px;
 }
 
 .mmm-routines .rt-hint {

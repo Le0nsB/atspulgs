@@ -119,9 +119,13 @@ cilne var būt fonā.
 | iepriekšējā dziesma                         | `SPOTIFY_PREV`           |
 | skaļāk                                      | `SPOTIFY_VOLUME_UP`      |
 | klusāk                                      | `SPOTIFY_VOLUME_DOWN`    |
+| parādi treniņu / rādi treniņu               | `PAGES_GOTO` 5           |
+| treniņš pabeigts / treniņu pabeidzu         | `ROUTINES_COMPLETE`      |
+| vēl ne / treniņš nav pabeigts               | `ROUTINES_DISMISS`       |
+| par vieglu / tieši laikā / par grūtu        | `ROUTINES_FEEDBACK` (`easy` / `ok` / `hard`) |
 
 (Spotify komandas prasa `MMM-SpotifyNowPlaying` ar Premium kontu un aktīvu
-ierīci — skat. tā moduļa README.md.)
+ierīci — skat. tā moduļa README.md. Treniņu komandas prasa `MMM-Routines`.)
 
 ### Savas komandas
 

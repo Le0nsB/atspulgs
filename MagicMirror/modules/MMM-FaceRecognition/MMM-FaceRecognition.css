@@ -47,6 +47,10 @@
 	opacity: 0.75;
 }
 
+.mmm-facerecognition .fr-status-icon {
+	font-size: 0.9em;
+}
+
 .mmm-facerecognition .fr-dot {
 	width: 6px;
 	height: 6px;

@@ -8,7 +8,7 @@
  * kā Redirect URI jābūt pievienotam tieši:  http://127.0.0.1:8888/callback
  *
  * Skripts atver pārlūku, tu autorizē, un konsolē tiek izdrukāts refresh token,
- * ko ieliec config.js modulī kā `refreshToken`.
+ * ko ieliec MagicMirror/secrets.js kā `spotify.refreshToken`.
  */
 import http from "node:http";
 import { exec } from "node:child_process";
@@ -95,7 +95,7 @@ const server = http.createServer(async (req, res) => {
 
 		console.log("\n=== Spotify refresh token ===\n");
 		console.log(data.refresh_token);
-		console.log("\nIeliec to config.js kā `refreshToken`.\n");
+		console.log("\nIeliec to MagicMirror/secrets.js kā `spotify.refreshToken` (NE config/ mapē).\n");
 	} catch (err) {
 		res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
 		res.end("Token apmaiņa neizdevās, skat. terminālī.");

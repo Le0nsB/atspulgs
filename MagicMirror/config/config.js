@@ -8,39 +8,10 @@
  * which will be converted to `config.js` while starting. For more information
  * see https://docs.magicmirror.builders/configuration/introduction.html#enviromnent-variables
  */
-// Privātās atslēgas nāk no config/secrets.js (netiek pievienots git).
-// Ja faila nav, moduļi, kuriem vajag atslēgas, vienkārši nerādīsies.
-// MagicMirror šo failu ielasa kā tekstu (bez īsta __dirname), tāpēc
-// mēģinām vairākus ceļus līdz secrets.js.
-let secrets = { spotify: {} };
-// Tikai servera pusē (Node). Pārlūkā (piem. remote.html no telefona, kur nav
-// Electron `require`) šis bloks netiek izpildīts — citādi visa config.js
-// izpilde mestu "require is not defined" un `config` paliktu nedefinēts.
-if (typeof require === "function") {
-	const path = require("node:path");
-	const base = (typeof global !== "undefined" && global.root_path) ? global.root_path : process.cwd();
-	const candidates = [
-		path.join(base, "config", "secrets.js"),
-		path.join(base, "secrets.js")
-	];
-	let loaded = false;
-	for (const candidate of candidates) {
-		try {
-			secrets = require(candidate);
-			loaded = true;
-			break;
-		} catch (e) {
-			// Fails nav šajā ceļā — mēģinām nākamo. Bet ja fails IR, tikai ar
-			// sintakses kļūdu, par to jāzina — citādi moduļi klusi pazūd.
-			if (e.code !== "MODULE_NOT_FOUND" || !String(e.message).includes(candidate)) {
-				console.warn(`config: neizdevās ielasīt ${candidate}: ${e.message}`);
-			}
-		}
-	}
-	if (!loaded) {
-		console.warn("config: secrets.js nav atrasts — moduļi, kuriem vajag atslēgas (piem. Spotify), nerādīsies.");
-	}
-}
+// Spotify atslēgas šeit NAV: MagicMirror atdod visu šo failu pārlūkam (/config), bet
+// config/ mape tiek atdota arī pa HTTP kā statiski faili. Tāpēc atslēgas glabājas
+// MagicMirror/secrets.js (ārpus config/ un modules/) un tās ielasa tikai node_helper
+// (MMM-SpotifyNowPlaying, MMM-SpotifyDetail). Skat. secrets.js.sample.
 
 // Atrašanās vieta (Cēsis) — kopīga visiem laikapstākļu moduļiem.
 const LAT = 57.311886;
@@ -98,6 +69,9 @@ let config = {
 			// ģenerē ar `node --run generate-apikey` moduļa mapē un pievieno šeit.
 			module: "MMM-Remote-Control",
 			config: {
+				// Papildu poga "Treniņi" tālvadības sākumizvēlnē (config/custom_menu.json;
+				// `type: "link"` ir šī projekta papildinājums remote-menu-ui.mjs).
+				customMenu: "custom_menu.json"
 				// customCommand: {},
 				// apiKey: ""
 			}
@@ -160,7 +134,7 @@ let config = {
 					],
 					morning: [
 						"Labrīt!", "Lai jauka diena!", "Enerģijas pilna diena tev priekšā!",
-						"Kafija gaida ☕", "Celies un spīdi!"
+						"Kafija gaida", "Celies un spīdi!"
 					],
 					afternoon: [
 						"Izskaties lieliski!", "Puse dienas jau aiz muguras!", "Turpini tāpat!",
@@ -244,15 +218,21 @@ let config = {
 			module: "MMM-GestureNav",
 			position: "bottom_right",
 			config: {
-				// TODO: noņemt pirms Pi izvietošanas — šis ID der tikai šim MacBook
-				// profilam (C270 HD WEBCAM), uz Pi ar `exact` constraint tas neizdosies.
-				deviceId: "ed074b0952c846269468d97339dea5a2d414a28dfc8bb657dbd1e1ea4dfd4327",
+				// Kamera pēc nosaukuma (der gan Mac, gan Pi). Ja tādas nav, tiek
+				// izmantota noklusējuma kamera. Konkrētu id vari norādīt ar `deviceId`.
+				deviceLabel: "C270",
 				showPreview: true, // mazs kameras priekšskatījums (var izslēgt)
-				oneFinger: "PAGES_GOTO", oneFingerPayload: 0, // 1 pirksts -> nedēļas laiks
-				twoFingers: "PAGES_GOTO", twoFingersPayload: 2, // 2 pirksti -> mēneša kalendārs
-				threeFingers: "PAGES_GOTO", threeFingersPayload: 3, // 3 pirksti -> ziņas detalizēti
-				fist: "NEWSDETAIL_NEXT", // ✊ dūre -> nākamā ziņa (detalizēto ziņu lapā)
-				openPalm: "PAGES_HOME" // atvērta plauksta -> sākums
+				// 1/2/3 pirksti vairs nepārslēdz uz konkrētu lapu — lapas maina ar swipe.
+				oneFinger: null,
+				twoFingers: null,
+				threeFingers: null,
+				fist: "NEWSDETAIL_NEXT", // dūre -> nākamā ziņa (detalizēto ziņu lapā)
+				openPalm: "PAGES_HOME", // atvērta plauksta -> sākums
+				// Pāršķiršana ar roku: paceli roku aktīvajā zonā un pāvelc pa kreisi/labi,
+				// lai pārietu uz iepriekšējo/nākamo MMM-Pages lapu.
+				swipeEnabled: true,
+				onSwipeLeft: "PAGES_PREV",
+				onSwipeRight: "PAGES_NEXT"
 			}
 		},
 		{
@@ -261,9 +241,6 @@ let config = {
 			module: "MMM-SpotifyNowPlaying",
 			position: "bottom_left",
 			config: {
-				clientId: secrets.spotify.clientId,
-				clientSecret: secrets.spotify.clientSecret,
-				refreshToken: secrets.spotify.refreshToken,
 				updateInterval: 15 * 1000,
 				showAlbumArt: true,
 				showProgress: true,
@@ -277,20 +254,26 @@ let config = {
 			// MMM-SpotifyNowPlaying, bet ir neatkarīgs modulis (savs node_helper).
 			module: "MMM-SpotifyDetail",
 			position: "middle_center",
-			config: {
-				clientId: secrets.spotify.clientId,
-				clientSecret: secrets.spotify.clientSecret,
-				refreshToken: secrets.spotify.refreshToken
-			}
+			config: {}
 		},
 		{
-			// Ziņas detalizēti — atsevišķa lapa (3 pirksti). Viena ziņa vienlaikus,
-			// pilns kopsavilkums; rotē pati, ✊ dūre = nākamā ziņa.
+			// Ziņas detalizēti — atsevišķa lapa. Viena ziņa vienlaikus,
+			// pilns kopsavilkums; rotē pati, dūre = nākamā ziņa.
 			module: "MMM-NewsDetail",
 			position: "middle_center",
 			config: {
 				sourceLabel: "LSM.lv"
 			}
+		},
+		{
+			// Mājas treniņi — atsevišķa lapa ar šodienas treniņu. Ko trenēt un kāds
+			// inventārs ir, izvēlas telefonā: http://<pi-ip>:8080/routines. Kad kāds
+			// pienāk pie spoguļa (MMM-FaceRecognition), pajautā, vai treniņš pabeigts
+			// (ne biežāk kā reizi stundā); atbilde ar balsi: "Spoguli, treniņš pabeigts"
+			// (skat. moduļa README.md).
+			module: "MMM-Routines",
+			position: "middle_center",
+			config: {}
 		},
 		{
 			// Klātbūtnes noteikšana ar kameru (MediaPipe FaceDetector, NAV identitātes
@@ -299,16 +282,16 @@ let config = {
 			// MMM-Remote-Control jābūt sarakstā (skat. moduļa README.md).
 			module: "MMM-FaceRecognition",
 			config: {
-				// TODO: noņemt pirms Pi izvietošanas — šis ID der tikai šim MacBook
-				// profilam (C270 HD WEBCAM), uz Pi ar `exact` constraint tas neizdosies.
-				deviceId: "ed074b0952c846269468d97339dea5a2d414a28dfc8bb657dbd1e1ea4dfd4327",
+				// Kamera pēc nosaukuma (der gan Mac, gan Pi). Ja tādas nav, tiek
+				// izmantota noklusējuma kamera. Konkrētu id vari norādīt ar `deviceId`.
+				deviceLabel: "C270",
 				absentTimeoutMs: 30 * 1000 // 30 s bez sejas -> ekrāns izslēdzas
 			}
 		},
 		{
-			// Ekrānsaudzētājs pēc 1 min neaktivitātes — rotē starp Matrix
-			// digitālo lietu, digitālo pulksteni un lēni rotējošu ikosaedru
-			// (skat. MMM-Screensaver README.md). Pamostas no peles/tastatūras/
+			// Ekrānsaudzētājs pēc 1 min neaktivitātes — balts LCD pulkstenis
+			// (Matrix un ikosaedrs ir moduļa kodā, bet šeit izslēgti; pievieno
+			// atpakaļ caur `screensavers`, skat. MMM-Screensaver README.md). Pamostas no peles/tastatūras/
 			// pieskāriena UN no žestiem/balss/tālvadības (skat.
 			// activityNotifications moduļa noklusējumos). Jābūt MMM-Pages
 			// `fixed` sarakstā, citādi lapu pārslēgšana to paslēptu.
@@ -316,8 +299,8 @@ let config = {
 			position: "fullscreen_above",
 			config: {
 				timeout: 60 * 1000,
-				screensavers: ["matrix", "clock", "icosahedron"],
-				screensaverDuration: 45 * 1000
+				screensavers: ["clock"],
+				clock: { color: "#ffffff", glowBlur: 20, showSeconds: true, showDate: true }
 			}
 		},
 		{
@@ -339,7 +322,8 @@ let config = {
 					],
 					["MMM-MonthCalendar"],
 					["MMM-NewsDetail"],
-					["MMM-SpotifyDetail"]
+					["MMM-SpotifyDetail"],
+					["MMM-Routines"]
 				]
 			}
 		},

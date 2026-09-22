@@ -120,6 +120,10 @@
 	}
 }
 
+.MMM-VoiceCommands .vc-status-icon {
+	color: #7aff96;
+}
+
 .MMM-VoiceCommands .vc-transcript {
 	opacity: 0.6;
 	font-style: italic;

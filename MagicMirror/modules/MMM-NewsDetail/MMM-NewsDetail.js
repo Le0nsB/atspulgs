@@ -4,7 +4,7 @@
  * pilns kopsavilkums, avots un laiks. Ziņas nāk no `newsfeed` moduļa
  * (NEWS_FEED notifikācija, tāpēc `broadcastNewsFeeds: true` jābūt ieslēgtam).
  *
- * Bez kursora: ziņas rotē automātiski. Ar žestu (MMM-GestureNav ✊ dūre ->
+ * Bez kursora: ziņas rotē automātiski. Ar žestu (MMM-GestureNav dūre ->
  * NEWSDETAIL_NEXT) var pāriet uz nākamo un uz brīdi apturēt rotāciju, lai
  * paspētu izlasīt.
  */
@@ -16,11 +16,11 @@ Module.register("MMM-NewsDetail", {
 		maxDescriptionChars: 0, // 0 = viss teksts; citādi apgriež ar "…"
 		nextNotification: "NEWSDETAIL_NEXT",
 		prevNotification: "NEWSDETAIL_PREV",
-		hint: "✊ = nākamā ziņa"
+		hint: "= nākamā ziņa"
 	},
 
 	getStyles () {
-		return ["MMM-NewsDetail.css"];
+		return ["font-awesome.css", "MMM-NewsDetail.css"];
 	},
 
 	start () {
@@ -78,13 +78,28 @@ Module.register("MMM-NewsDetail", {
 		return `${m.format("DD.MM.YYYY HH:mm")} · ${m.fromNow()}`;
 	},
 
+	buildPlaceholder (iconClass, text) {
+		const box = document.createElement("div");
+		box.className = "nd-placeholder";
+
+		const ic = document.createElement("i");
+		ic.className = `fa-solid ${iconClass} nd-placeholder-icon`;
+		box.appendChild(ic);
+
+		const msg = document.createElement("div");
+		msg.className = "nd-placeholder-text dimmed light small";
+		msg.textContent = text;
+		box.appendChild(msg);
+
+		return box;
+	},
+
 	getDom () {
 		const wrapper = document.createElement("div");
 		wrapper.className = "mmm-newsdetail";
 
 		if (!this.items.length) {
-			wrapper.className += " dimmed light small";
-			wrapper.innerHTML = "Ielādē ziņas…";
+			wrapper.appendChild(this.buildPlaceholder("fa-newspaper", "Ielādē ziņas…"));
 			return wrapper;
 		}
 
@@ -131,8 +146,13 @@ Module.register("MMM-NewsDetail", {
 
 		const foot = document.createElement("div");
 		foot.className = "nd-foot dimmed xsmall";
+		const hintIcon = document.createElement("i");
+		hintIcon.className = "fa-solid fa-hand-fist nd-foot-icon";
+		foot.appendChild(hintIcon);
+		const hintText = document.createElement("span");
 		const paused = Date.now() < this.pausedUntil;
-		foot.textContent = paused ? `${this.config.hint} · pauze` : this.config.hint;
+		hintText.textContent = paused ? `${this.config.hint} · pauze` : this.config.hint;
+		foot.appendChild(hintText);
 		wrapper.appendChild(foot);
 
 		return wrapper;

@@ -107,19 +107,38 @@ Module.register("MMM-WeekWeather", {
 		return map[code] || "wi-na";
 	},
 
+	buildPlaceholder (iconClass, text, pulse) {
+		const box = document.createElement("div");
+		box.className = "ww-placeholder";
+
+		const icon = document.createElement("span");
+		icon.className = `wi ${iconClass} ww-placeholder-icon${pulse ? " ww-pulse" : ""}`;
+		box.appendChild(icon);
+
+		const msg = document.createElement("div");
+		msg.className = "ww-placeholder-text dimmed light small";
+		msg.textContent = text;
+		box.appendChild(msg);
+
+		return box;
+	},
+
 	getDom () {
 		const wrapper = document.createElement("div");
 		wrapper.className = "mmm-weekweather";
 
+		const heading = document.createElement("div");
+		heading.className = "ww-heading dimmed light xsmall";
+		heading.textContent = "ŠĪS NEDĒĻAS LAIKS";
+		wrapper.appendChild(heading);
+
 		if (this.error) {
-			wrapper.className += " dimmed light small";
-			wrapper.innerHTML = `Laika dati nav pieejami (${this.error})`;
+			wrapper.appendChild(this.buildPlaceholder("wi-na", `Laika dati nav pieejami (${this.error})`));
 			return wrapper;
 		}
 
 		if (!this.loaded) {
-			wrapper.className += " dimmed light small";
-			wrapper.innerHTML = "Ielādē…";
+			wrapper.appendChild(this.buildPlaceholder("wi-day-cloudy", "Ielādē laika prognozi…", true));
 			return wrapper;
 		}
 

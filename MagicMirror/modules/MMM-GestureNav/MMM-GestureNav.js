@@ -17,9 +17,6 @@
  * ka tas nesaderas ar MagicMirror globālo `Module`, gan lai neslogotu galveno
  * pavedienu. Viss lokāli (modelis un WASM iekļauti modulī pēc `npm install`).
  * Saderīgs ar MMM-Pages notifikāciju API. Nepieciešams ELECTRON_ENABLE_GPU=1.
- * 
- * 159-212-230-Gesture.worker.js
- * 257-243-318
  */
 Module.register("MMM-GestureNav", {
 	defaults: {
@@ -27,6 +24,7 @@ Module.register("MMM-GestureNav", {
 		cameraWidth: 640,
 		cameraHeight: 480,
 		deviceId: null, // konkrētas kameras id (navigator.mediaDevices.enumerateDevices)
+		deviceLabel: null, // ... vai daļa no kameras nosaukuma (piem. "C270") — der uz jebkuras ierīces; deviceId to pārspēj
 
 		// --- apstrāde ---
 		processingFps: 15, // cik reižu sekundē analizēt kadru (mazāk = mazāk CPU; Pi5 domāts ~10-15)
@@ -56,7 +54,7 @@ Module.register("MMM-GestureNav", {
 
 		// Ko darīt pie katra žesta. Notifikācija (+ neobligāts payload).
 		// null / "" = žests neko nedara. Pirksti = izstiepti rādītājs..mazais.
-		fist: null, fistPayload: undefined, // ✊ dūre (0 izstieptu pirkstu)
+		fist: null, fistPayload: undefined, // dūre (0 izstieptu pirkstu)
 		oneFinger: "PAGES_GOTO", oneFingerPayload: 0, // 1 pirksts -> nedēļas laiks (lapa 0)
 		twoFingers: "PAGES_GOTO", twoFingersPayload: 2, // 2 pirksti -> mēneša kalendārs (lapa 2)
 		threeFingers: null, threeFingersPayload: undefined,
@@ -79,7 +77,7 @@ Module.register("MMM-GestureNav", {
 	},
 
 	getStyles () {
-		return ["MMM-GestureNav.css"];
+		return ["font-awesome.css", "MMM-GestureNav.css"];
 	},
 
 	start () {
@@ -154,17 +152,43 @@ Module.register("MMM-GestureNav", {
 		});
 	},
 
+	// Kameras id ir citāds katrā ierīcē un pārlūka profilā (Mac ≠ Pi), tāpēc parasti ērtāk
+	// norādīt daļu no nosaukuma (`deviceLabel`). Nosaukumi pārlūkā ir redzami tikai pēc kameras
+	// atļaujas, tāpēc vajadzības gadījumā kameru uz mirkli atver tikai atļaujas iegūšanai.
+	async resolveDeviceId () {
+		if (this.config.deviceId) return this.config.deviceId;
+		const wanted = (this.config.deviceLabel || "").trim().toLowerCase();
+		if (!wanted) return null;
+
+		const listCameras = async () => (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
+		let cameras = await listCameras();
+		if (cameras.length && cameras.every((d) => !d.label)) {
+			const probe = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+			probe.getTracks().forEach((t) => t.stop());
+			cameras = await listCameras();
+		}
+
+		const match = cameras.find((d) => d.label.toLowerCase().includes(wanted));
+		if (!match) {
+			Log.warn(`MMM-GestureNav: nav kameras, kuras nosaukumā ir "${wanted}" (pieejamas: ${cameras.map((d) => d.label || "?").join(", ") || "nav"}), izmantoju noklusējuma kameru`);
+		}
+		return match ? match.deviceId : null;
+	},
+
 	async startCamera () {
 		const video = { width: { ideal: this.config.cameraWidth }, height: { ideal: this.config.cameraHeight } };
+		// Ja nosaukuma meklēšana neizdodas (piem. atļauja liegta), turpinām ar noklusējuma kameru —
+		// īsto kļūdu tad nomet getUserMedia zemāk.
+		const deviceId = await this.resolveDeviceId().catch(() => null);
 
 		try {
 			this.stream = await navigator.mediaDevices.getUserMedia({
 				audio: false,
-				video: this.config.deviceId ? { ...video, deviceId: { exact: this.config.deviceId } } : video
+				video: deviceId ? { ...video, deviceId: { exact: deviceId } } : video
 			});
 		} catch (error) {
-			if (!this.config.deviceId) throw error;
-			Log.warn(`MMM-GestureNav: kamera ${this.config.deviceId} nav pieejama (${error.message}), izmantoju nākamo pieejamo kameru`);
+			if (!deviceId) throw error;
+			Log.warn(`MMM-GestureNav: kamera ${deviceId} nav pieejama (${error.message}), izmantoju nākamo pieejamo kameru`);
 			this.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video });
 		}
 
@@ -281,7 +305,7 @@ Module.register("MMM-GestureNav", {
 	},
 
 	bucketLabel (b) {
-		if (b === 5) return "✋ plauksta";
+		if (b === 5) return "plauksta";
 		if (b === 0) return "dūre";
 		if (b === 1) return "1 pirksts";
 		if (b < 0) return "…";
@@ -460,12 +484,12 @@ Module.register("MMM-GestureNav", {
 	setLabel (text) {
 		const value = text || "aktīvs";
 		if (this.labelEl) this.labelEl.textContent = value;
-		if (this.statusEl) this.statusEl.textContent = `👋 ${value}`;
+		if (this.statusEl) this.statusEl.textContent = value;
 	},
 
 	renderStatus () {
 		if (this.labelEl) this.labelEl.textContent = this.status;
-		if (this.statusEl) this.statusEl.textContent = `👋 ${this.status}`;
+		if (this.statusEl) this.statusEl.textContent = this.status;
 	},
 
 	// state: "idle" (nekas nav atpazīts), "active" (roka apzināti pacelta), "error"
@@ -486,9 +510,12 @@ Module.register("MMM-GestureNav", {
 			statusWrap.className = "gn-status";
 			this.dotEl = document.createElement("span");
 			this.dotEl.className = "gn-dot";
+			const statusIcon = document.createElement("i");
+			statusIcon.className = "fa-solid fa-hand-paper gn-status-icon";
 			this.statusEl = document.createElement("span");
-			this.statusEl.textContent = `👋 ${this.status || ""}`;
+			this.statusEl.textContent = this.status || "";
 			statusWrap.appendChild(this.dotEl);
+			statusWrap.appendChild(statusIcon);
 			statusWrap.appendChild(this.statusEl);
 			wrapper.appendChild(statusWrap);
 			return wrapper;

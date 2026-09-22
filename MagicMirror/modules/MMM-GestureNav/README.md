@@ -89,7 +89,8 @@ export ELECTRON_ENABLE_GPU=1
 | Opcija | Nokl. | Nozīme |
 | --- | --- | --- |
 | `cameraWidth` / `cameraHeight` | `640` / `480` | pieprasītā kameras izšķirtspēja |
-| `deviceId` | `null` | konkrētas kameras id (`navigator.mediaDevices.enumerateDevices()`) |
+| `deviceLabel` | `null` | daļa no kameras nosaukuma (reģistrnejutīgi), piem. `"C270"` — **ieteicamais veids**, jo der gan uz Mac, gan uz Pi. Ja tāda nav, izmanto noklusējuma kameru (un brīdina konsolē ar pieejamo kameru sarakstu) |
+| `deviceId` | `null` | konkrētas kameras id (`navigator.mediaDevices.enumerateDevices()`); ir citāds katrā ierīcē/profilā un pārspēj `deviceLabel` |
 | `processingFps` | `15` | kadru analīzes biežums (mazāk = mazāk CPU; Pi 5: 10–15) |
 | `analysisWidth` | `320` | uz cik px platu samazina kadru pirms analīzes |
 | `numHands` | `1` | cik roku meklēt |

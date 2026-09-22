@@ -5,6 +5,18 @@
 	letter-spacing: 1px;
 }
 
+.mmm-monthcalendar .mc-title::before {
+	content: "";
+	display: inline-block;
+	width: 7px;
+	height: 7px;
+	margin-right: 10px;
+	margin-bottom: 2px;
+	border-radius: 50%;
+	background: #7cccff;
+	box-shadow: 0 0 7px rgba(124, 204, 255, 0.6);
+}
+
 .mmm-monthcalendar .mc-grid {
 	display: grid;
 	grid-template-columns: repeat(7, 1fr);

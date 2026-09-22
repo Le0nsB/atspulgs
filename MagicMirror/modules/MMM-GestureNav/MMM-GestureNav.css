@@ -47,6 +47,10 @@
 	opacity: 0.75;
 }
 
+.mmm-gesturenav .gn-status-icon {
+	font-size: 0.9em;
+}
+
 .mmm-gesturenav .gn-dot {
 	width: 6px;
 	height: 6px;

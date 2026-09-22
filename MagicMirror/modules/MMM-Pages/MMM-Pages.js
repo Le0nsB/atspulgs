@@ -3,6 +3,9 @@
  * Vienkāršs "lapu"/logu pārslēdzējs. Ar kreiso/labo bulttaustiņu var
  * pārslēgties starp vairākiem skatiem. Katrā lapā redzami tikai tie
  * moduļi, kas norādīti `pages` sarakstā; `fixed` moduļi redzami vienmēr.
+ * Lapas maiņa ir īsta slīdēšana (animate.css slideIn/slideOut) — nevis
+ * vienkārša izbalēšana — ar virzienu atkarībā no tā, vai ejam uz priekšu
+ * vai atpakaļ.
  *
  * Citi moduļi (piem. MMM-GestureNav) var pārslēgt lapas ar notifikācijām:
  *   PAGES_NEXT              -> nākamā lapa
@@ -95,40 +98,50 @@ Module.register("MMM-Pages", {
 		} else {
 			next = Math.max(0, Math.min(total - 1, next));
 		}
-		this.applyPage(next);
+		this.applyPage(next, direction > 0 ? 1 : -1);
 	},
 
 	goToPage (index) {
 		const total = this.config.pages.length;
 		const n = Number(index);
 		if (total === 0 || !Number.isInteger(n) || n < 0 || n >= total) return;
-		this.applyPage(n);
+		this.applyPage(n, n > this.curPage ? 1 : -1);
 	},
 
-	applyPage (index) {
+	// direction: 1 = uz priekšu (nākamā lapa nāk no labās), -1 = atpakaļ (nāk no kreisās).
+	applyPage (index, direction = 1) {
 		if (index === this.curPage) return;
 		this.curPage = index;
-		this.updatePages();
+		this.updatePages(direction);
 		this.sendNotification("PAGE_CHANGED", this.curPage);
 	},
 
-	updatePages () {
+	updatePages (direction = 1) {
 		if (!this.domReady || this.config.pages.length === 0) return;
 
 		const visible = this.config.pages[this.curPage] || [];
 		const speed = this.config.animationTime;
+		// Īsta slīdēšana (animate.css), nevis tikai izbalēšana: lapa "aizslīd" projām
+		// vienā virzienā, jaunā ienāk no otras puses.
+		const outAnim = direction > 0 ? "slideOutLeft" : "slideOutRight";
+		const inAnim = direction > 0 ? "slideInRight" : "slideInLeft";
 
 		MM.getModules().enumerate((module) => {
 			if (module.name === "MMM-Pages") return;
 
 			const keepVisible = this.config.fixed.includes(module.name) || visible.includes(module.name);
+			// Animējam tikai moduļus, kam redzamība tiešām mainās — fiksētie moduļi
+			// (pulkstenis, žestu nav. u.c.), kas paliek redzami, nedrīkst pie katras
+			// lapas maiņas "aizslīdēt un atgriezties".
+			const wasVisible = !module.hidden;
+			const transitioning = wasVisible !== keepVisible;
 
 			const noop = () => {};
 			try {
 				if (keepVisible) {
-					module.show(speed, noop, { lockString: this.identifier });
+					module.show(speed, noop, { lockString: this.identifier, ...(transitioning ? { animate: inAnim } : {}) });
 				} else {
-					module.hide(speed, noop, { lockString: this.identifier });
+					module.hide(speed, noop, { lockString: this.identifier, ...(transitioning ? { animate: outAnim } : {}) });
 				}
 			} catch (error) {
 				Log.warn(`MMM-Pages: neizdevās pārslēgt moduli ${module.name}`, error);

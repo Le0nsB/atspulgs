@@ -1035,6 +1035,21 @@ function registerMenuElementBuilders (remote) {
 
     },
 
+    addLinkClickHandler (item, content) {
+
+      item.dataset.type = "item";
+      item.addEventListener(
+        "click",
+        () => {
+
+          // Relatīvs pret lapu, lai strādā arī ar `basePath`.
+          window.location.assign(new URL(content.url, document.baseURI).href);
+
+        }
+      );
+
+    },
+
     addItemClickHandler (item, content, menu) {
 
       item.dataset.type = "item";
@@ -1173,7 +1188,15 @@ function registerMenuElementAssembly (remote) {
 
         default:
 
-          if (content.action && content.content) {
+          // Projekta papildinājums: `type: "link"` + `url` atver citu lapu (piem. MMM-Routines).
+          if (content.type === "link" && content.url) {
+
+            this.addLinkClickHandler(
+              item,
+              content
+            );
+
+          } else if (content.action && content.content) {
 
             this.addItemClickHandler(
               item,
