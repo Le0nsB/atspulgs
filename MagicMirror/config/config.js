@@ -304,11 +304,20 @@ let config = {
 			}
 		},
 		{
+			// Rāda pilnekrāna WiFi iestatīšanas instrukcijas, kamēr comitup ir
+			// HOTSPOT/CONNECTING režīmā (skat. scripts/comitup/). Pati parādās/
+			// pazūd atkarībā no stāvokļa, tāpēc konfigurācijā nav jāieslēdz nekas
+			// papildu. Jābūt MMM-Pages `fixed` sarakstā, citādi lapu pārslēgšana
+			// to paslēptu tieši tad, kad tā vajadzīga.
+			module: "MMM-WifiSetup",
+			position: "fullscreen_above"
+		},
+		{
 			// Lapu pārslēdzējs: kreisais/labais bulttaustiņš vai žesti (MMM-GestureNav).
 			module: "MMM-Pages",
 			config: {
 				home: 1,
-				fixed: ["clock", "alert", "updatenotification", "MMM-GestureNav", "MMM-VoiceCommands", "MMM-FaceRecognition", "MMM-Screensaver"],
+				fixed: ["clock", "alert", "updatenotification", "MMM-GestureNav", "MMM-VoiceCommands", "MMM-FaceRecognition", "MMM-Screensaver", "MMM-WifiSetup"],
 				pages: [
 					["MMM-WeekWeather"],
 					[

@@ -1,0 +1,100 @@
+/* Pilnekrāna pārklājums. Sākumā neredzams; .active -> izbālē iekšā. */
+.mmm-wifisetup {
+	position: fixed;
+	inset: 0;
+	width: 100vw;
+	height: 100vh;
+	margin: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.92);
+	z-index: 99999;
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transition: opacity 600ms ease-in-out, visibility 600ms ease-in-out;
+}
+
+.mmm-wifisetup.active {
+	opacity: 1;
+	visibility: visible;
+}
+
+.mmm-wifisetup .ws-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+	max-width: 70vw;
+	padding: 40px 56px;
+	border-radius: 18px;
+	background: rgba(255, 255, 255, 0.04);
+	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+	text-align: center;
+}
+
+.mmm-wifisetup .ws-icon {
+	font-size: 3em;
+	opacity: 0.9;
+	margin-bottom: 6px;
+}
+
+.mmm-wifisetup .ws-title {
+	font-size: 1.6em;
+	letter-spacing: 0.02em;
+}
+
+.mmm-wifisetup .ws-status {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	font-size: 0.8em;
+	opacity: 0.75;
+}
+
+.mmm-wifisetup .ws-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: #777;
+	flex: 0 0 auto;
+}
+
+.mmm-wifisetup .ws-dot-hotspot {
+	background: #ffb84d;
+	box-shadow: 0 0 6px #ffb84d;
+}
+
+.mmm-wifisetup .ws-dot-connecting {
+	background: #7cccff;
+	box-shadow: 0 0 6px #7cccff;
+	animation: ws-pulse 1s ease-in-out infinite;
+}
+
+@keyframes ws-pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.35; }
+}
+
+.mmm-wifisetup .ws-ssid {
+	font-size: 1.3em;
+	font-weight: bold;
+	margin-top: 4px;
+}
+
+.mmm-wifisetup .ws-help {
+	max-width: 46ch;
+	opacity: 0.75;
+	font-size: 0.85em;
+	line-height: 1.4;
+	margin-top: 10px;
+}
+
+.mmm-wifisetup .ws-portal {
+	font-size: 0.95em;
+	opacity: 0.9;
+	font-family: monospace;
+}
