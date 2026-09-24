@@ -1,0 +1,84 @@
+.mmm-googlecalendar {
+	max-width: 320px;
+}
+
+.mmm-googlecalendar.gcal-config-error {
+	font-size: 13px;
+	color: rgba(255, 140, 140, 0.85);
+}
+
+.gcal-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.gcal-item {
+	display: flex;
+	gap: 10px;
+	font-size: 15px;
+	line-height: 1.3;
+}
+
+.gcal-when {
+	color: #7cccff;
+	white-space: nowrap;
+	min-width: 70px;
+}
+
+.gcal-title {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gcal-empty {
+	font-size: 13px;
+	color: rgba(255, 255, 255, 0.35);
+}
+
+.gcal-error-note {
+	margin-top: 8px;
+	font-size: 11px;
+	color: rgba(255, 140, 140, 0.7);
+}
+
+.gcal-pairing {
+	max-width: 280px;
+}
+
+.gcal-pairing-title {
+	font-size: 16px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	margin-bottom: 10px;
+}
+
+.gcal-pairing-step {
+	font-size: 13px;
+	color: rgba(255, 255, 255, 0.55);
+	margin-top: 8px;
+}
+
+.gcal-pairing-url {
+	font-size: 18px;
+	color: #7cccff;
+}
+
+.gcal-pairing-code {
+	font-size: 30px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	margin-top: 2px;
+}
+
+.gcal-pairing-error {
+	margin-top: 10px;
+	font-size: 12px;
+	color: rgba(255, 140, 140, 0.75);
+}

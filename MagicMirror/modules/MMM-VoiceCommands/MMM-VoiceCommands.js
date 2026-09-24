@@ -82,7 +82,12 @@ Module.register("MMM-VoiceCommands", {
 			{ phrases: ["vēl ne", "treniņš nav pabeigts", "treniņš vēl nav"], notification: "ROUTINES_DISMISS", label: "Treniņš vēl nav" },
 			{ phrases: ["par vieglu", "pārāk viegls", "bija viegls", "viegls"], notification: "ROUTINES_FEEDBACK", payload: "easy", label: "Treniņš: par vieglu" },
 			{ phrases: ["tieši laikā", "tieši labi", "normāli", "vidēji"], notification: "ROUTINES_FEEDBACK", payload: "ok", label: "Treniņš: tieši laikā" },
-			{ phrases: ["par grūtu", "pārāk grūts", "bija grūts", "grūts"], notification: "ROUTINES_FEEDBACK", payload: "hard", label: "Treniņš: par grūtu" }
+			{ phrases: ["par grūtu", "pārāk grūts", "bija grūts", "grūts"], notification: "ROUTINES_FEEDBACK", payload: "hard", label: "Treniņš: par grūtu" },
+
+			// --- uzdevumi/iepirkumi (skat. MMM-TodoList; dati no Todoist) ---
+			{ phrases: ["parādi uzdevumus", "rādi uzdevumus", "uzdevumu saraksts", "uzdevumi"], notification: "PAGES_GOTO", payload: 6, label: "Uzdevumi" },
+			{ phrases: ["uzdevums pabeigts", "uzdevumu pabeidzu", "pabeidzu uzdevumu", "izdarīju uzdevumu"], notification: "TODO_COMPLETE", payload: { list: "tasks" }, label: "Uzdevums pabeigts" },
+			{ phrases: ["pirkums nopirkts", "nopirku pirkumu", "atzīmē pirkumu", "pirkums pabeigts"], notification: "TODO_COMPLETE", payload: { list: "shopping" }, label: "Pirkums nopirkts" }
 		]
 	},
 

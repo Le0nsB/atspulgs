@@ -121,6 +121,17 @@ let config = {
 			}
 		},
 		{
+			// Personīgais Google kalendārs — pieslēdzas ar OAuth "device
+			// authorization" plūsmu (kods uz ekrāna, ievada google.com/device
+			// tālrunī — skat. moduļa README.md). OAuth klients (vienreiz
+			// uzstādīts) glabājas MagicMirror/secrets.js. Rāda tuvākos
+			// notikumus ŠEIT un pārraida tos arī uz MMM-MonthCalendar.
+			module: "MMM-GoogleCalendar",
+			header: "Mans kalendārs",
+			position: "top_left",
+			config: {}
+		},
+		{
 			module: "MMM-Namedays",
 			header: "Vārda diena",
 			position: "top_left",
@@ -206,7 +217,8 @@ let config = {
 			// node_helper uz Pi pārraida atpazīto komandu visiem klientiem.
 			// Noklusējuma komandas: "parādi laikapstākļus" / "parādi kalendāru" /
 			// "parādi ziņas" / "nākamā ziņa" / "uz sākumu" / "nākamā lapa" /
-			// "iepriekšējā lapa". Pielāgo caur `commands`.
+			// "iepriekšējā lapa" / "parādi uzdevumus" / "uzdevums pabeigts" /
+			// "pirkums nopirkts". Pielāgo caur `commands`.
 			module: "MMM-VoiceCommands",
 			position: "top_center",
 			config: {
@@ -283,6 +295,16 @@ let config = {
 			config: {}
 		},
 		{
+			// Uzdevumu un iepirkumu saraksts — atsevišķa lapa. Dati nāk no
+			// Todoist (divi projekti, skat. moduļa README.md par apiToken
+			// MagicMirror/secrets.js). Pievienošana/dzēšana notiek Todoist
+			// lietotnē telefonā; spogulis rāda un ar balsi ("uzdevums
+			// pabeigts" / "pirkums nopirkts") pabeidz augšējo ierakstu.
+			module: "MMM-TodoList",
+			position: "middle_center",
+			config: {}
+		},
+		{
 			// Klātbūtnes noteikšana ar kameru (MediaPipe FaceDetector, NAV identitātes
 			// atpazīšana) — ieslēdz/izslēdz ekrānu caur MMM-Remote-Control. Vajag:
 			// moduļa mapē `npm install` UN palaist ar ELECTRON_ENABLE_GPU=1, UN
@@ -329,6 +351,7 @@ let config = {
 					["MMM-WeekWeather"],
 					[
 						"calendar",
+						"MMM-GoogleCalendar",
 						"MMM-Namedays",
 						"compliments",
 						"MMM-DailyVerse",
@@ -339,7 +362,8 @@ let config = {
 					["MMM-MonthCalendar"],
 					["MMM-NewsDetail"],
 					["MMM-SpotifyDetail"],
-					["MMM-Routines"]
+					["MMM-Routines"],
+					["MMM-TodoList"]
 				]
 			}
 		},
