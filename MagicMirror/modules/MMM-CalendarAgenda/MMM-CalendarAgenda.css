@@ -1,0 +1,96 @@
+.mmm-calendaragenda {
+	width: 640px;
+	max-width: 90vw;
+	margin: 0 auto;
+	text-align: left;
+}
+
+.mmm-calendaragenda .ca-title {
+	font-size: 26px;
+	text-align: center;
+	margin-bottom: 18px;
+	letter-spacing: 1px;
+}
+
+.mmm-calendaragenda .ca-title::before {
+	content: "";
+	display: inline-block;
+	width: 7px;
+	height: 7px;
+	margin-right: 10px;
+	margin-bottom: 2px;
+	border-radius: 50%;
+	background: #7cccff;
+	box-shadow: 0 0 7px rgba(124, 204, 255, 0.6);
+}
+
+.mmm-calendaragenda .ca-day {
+	margin-bottom: 16px;
+}
+
+.mmm-calendaragenda .ca-day-head {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+	padding-bottom: 5px;
+	margin-bottom: 8px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.mmm-calendaragenda .ca-day-main {
+	font-size: 17px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+}
+
+.mmm-calendaragenda .ca-today .ca-day-main {
+	color: #7cccff;
+}
+
+.mmm-calendaragenda .ca-day-sub {
+	font-size: 13px;
+	color: rgba(255, 255, 255, 0.4);
+}
+
+.mmm-calendaragenda .ca-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+}
+
+.mmm-calendaragenda .ca-item {
+	display: flex;
+	align-items: baseline;
+	gap: 14px;
+	font-size: 20px;
+	line-height: 1.3;
+}
+
+.mmm-calendaragenda .ca-when {
+	min-width: 120px;
+	font-size: 15px;
+	color: rgba(255, 255, 255, 0.55);
+	white-space: nowrap;
+}
+
+.mmm-calendaragenda .ca-now {
+	color: #7cccff;
+	font-weight: bold;
+}
+
+.mmm-calendaragenda .ca-text {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.mmm-calendaragenda .ca-empty {
+	font-size: 16px;
+	color: rgba(255, 255, 255, 0.35);
+	text-align: center;
+}

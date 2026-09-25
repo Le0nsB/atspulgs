@@ -83,3 +83,25 @@
 	-webkit-line-clamp: 2;
 	overflow: hidden;
 }
+
+/* Nākamā mēneša dienas režģa beigās — redzamas, bet klusākas. */
+.mmm-monthcalendar .mc-next {
+	opacity: 0.55;
+}
+
+.mmm-monthcalendar .mc-has-personal {
+	box-shadow: inset 3px 0 0 #7cccff;
+}
+
+.mmm-monthcalendar .mc-personal {
+	font-size: 10px;
+	line-height: 1.2;
+	color: #7cccff;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.mmm-monthcalendar .mc-personal.mc-more {
+	color: rgba(124, 204, 255, 0.6);
+}

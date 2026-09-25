@@ -5,7 +5,10 @@
  * (namedays.data.js) — pilnībā lokāli, internets nav vajadzīgs.
  *
  * Ja dienā ir svētki (notikums no `calendar` moduļa, piem. Brīvdienas
- * Latvijā), tie tiek parādīti zem datuma.
+ * Latvijā), tie tiek parādīti zem datuma. Personīgie notikumi (no
+ * MMM-GoogleCalendar, skat. `personalSources`) tiek rādīti atsevišķi, zilā
+ * krāsā un ar laiku. Mēneša beigās režģis turpinās ar nākamā mēneša
+ * dienām, lai vienmēr redz vismaz nedēļu uz priekšu.
  */
 Module.register("MMM-MonthCalendar", {
 	defaults: {
@@ -15,6 +18,9 @@ Module.register("MMM-MonthCalendar", {
 		showNamedays: true,
 		showHolidays: true, // rādīt svētkus no `calendar` moduļa
 		maxHolidaysPerDay: 2,
+		personalSources: ["MMM-GoogleCalendar"], // moduļi, kuru notikumi ir "mani plāni", ne svētki
+		maxPersonalPerDay: 2,
+		minDaysAhead: 7, // cik dienas pēc šodienas vienmēr redzamas (arī nākamajā mēnesī)
 		updateOnMidnight: true,
 		weekdayLabels: ["Pr", "Ot", "Tr", "Ce", "Pk", "Se", "Sv"],
 		monthLabels: [
@@ -40,6 +46,8 @@ Module.register("MMM-MonthCalendar", {
 		const data = window.MMM_NAMEDAYS_DATA || { traditional: {}, extended: {} };
 		this.namedays = this.config.useExtended ? data.extended : data.traditional;
 		this.holidays = {}; // "YYYY-M-D" -> [nosaukumi]
+		this.personal = {}; // "YYYY-M-D" -> [{ title, time }]
+		this.sendersPersonal = {}; // identifier -> vai sūtītājs ir personīgais kalendārs
 		this.eventsBySender = {}; // katra `calendar` instance sūta savu sarakstu
 		if (this.config.updateOnMidnight) this.scheduleMidnightUpdate();
 	},
@@ -52,6 +60,7 @@ Module.register("MMM-MonthCalendar", {
 
 		const key = sender && sender.identifier ? sender.identifier : "default";
 		this.eventsBySender[key] = payload;
+		this.sendersPersonal[key] = !!(sender && this.config.personalSources.includes(sender.name));
 
 		const DAY = 24 * 60 * 60 * 1000;
 		const isUtcMidnight = (ms) => {
@@ -60,7 +69,9 @@ Module.register("MMM-MonthCalendar", {
 		};
 
 		const byDay = {};
-		Object.values(this.eventsBySender).forEach((events) => {
+		const personalByDay = {};
+		Object.entries(this.eventsBySender).forEach(([senderKey, events]) => {
+			const personal = this.sendersPersonal[senderKey];
 			events.forEach((event) => {
 				if (!event || !event.startDate) return;
 				const startMs = Number(event.startDate);
@@ -79,14 +90,26 @@ Module.register("MMM-MonthCalendar", {
 				while (cursor <= lastDay && guard < 40) {
 					const dayKey = `${cursor.getFullYear()}-${cursor.getMonth()}-${cursor.getDate()}`;
 					const title = event.title || "";
-					const list = (byDay[dayKey] = byDay[dayKey] || []);
-					if (!list.includes(title)) list.push(title);
+					if (personal) {
+						// Laiku rāda tikai sākuma dienā; visas dienas / turpinājuma dienās bez laika.
+						const sameDay = cursor.getTime() === new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+						const time = !allDay && sameDay
+							? start.toLocaleTimeString("lv-LV", { hour: "2-digit", minute: "2-digit" })
+							: "";
+						const list = (personalByDay[dayKey] = personalByDay[dayKey] || []);
+						if (!list.some((p) => p.title === title && p.time === time)) list.push({ title, time, sort: allDay ? 0 : startMs });
+					} else {
+						const list = (byDay[dayKey] = byDay[dayKey] || []);
+						if (!list.includes(title)) list.push(title);
+					}
 					cursor.setDate(cursor.getDate() + 1);
 					guard++;
 				}
 			});
 		});
+		Object.values(personalByDay).forEach((list) => list.sort((a, b) => a.sort - b.sort));
 		this.holidays = byDay;
+		this.personal = personalByDay;
 		this.updateDom(300);
 	},
 
@@ -106,6 +129,78 @@ Module.register("MMM-MonthCalendar", {
 
 	holidaysFor (year, month, day) {
 		return this.holidays[`${year}-${month}-${day}`] || [];
+	},
+
+	personalFor (year, month, day) {
+		return this.personal[`${year}-${month}-${day}`] || [];
+	},
+
+	// Cik nākamā mēneša dienu pievienot režģa beigās: vismaz līdz nedēļas
+	// beigām, un tik, lai pēc šodienas būtu redzamas `minDaysAhead` dienas.
+	trailingDays (year, month, today) {
+		const daysInMonth = new Date(year, month + 1, 0).getDate();
+		const lastDow = new Date(year, month, daysInMonth).getDay();
+		const lastWeekday = (this.config.firstDayOfWeek + 6) % 7;
+		let extra = (lastWeekday - lastDow + 7) % 7;
+		const needed = this.config.minDaysAhead - (daysInMonth - today);
+		while (extra < needed) extra += 7;
+		return extra;
+	},
+
+	buildCell (date, { isToday, isNext }) {
+		const year = date.getFullYear();
+		const month = date.getMonth();
+		const d = date.getDate();
+		const cell = document.createElement("div");
+		cell.className = "mc-day";
+		if (isToday) cell.className += " mc-today";
+		if (isNext) cell.className += " mc-next";
+
+		const holidays = this.config.showHolidays ? this.holidaysFor(year, month, d) : [];
+		if (holidays.length) cell.className += " mc-has-holiday";
+		const personal = this.config.showHolidays ? this.personalFor(year, month, d) : [];
+		if (personal.length) cell.className += " mc-has-personal";
+
+		const num = document.createElement("div");
+		num.className = "mc-num";
+		// Nākamā mēneša 1. datumam pieliek mēnesi, lai nesajauc ar šī mēneša 1.
+		num.textContent = isNext && d === 1 ? `${d}. ${this.config.monthLabels[month].slice(0, 3).toLowerCase()}` : d;
+		cell.appendChild(num);
+
+		if (this.config.showNamedays) {
+			const names = this.namesFor(month, d);
+			if (names.length) {
+				const nd = document.createElement("div");
+				nd.className = "mc-names dimmed";
+				nd.textContent = names.slice(0, this.config.maxNamesPerDay).join(", ");
+				cell.appendChild(nd);
+			}
+		}
+
+		if (personal.length) {
+			const shown = personal.slice(0, this.config.maxPersonalPerDay);
+			shown.forEach((p) => {
+				const pe = document.createElement("div");
+				pe.className = "mc-personal";
+				pe.textContent = p.time ? `${p.time} ${p.title}` : p.title;
+				cell.appendChild(pe);
+			});
+			if (personal.length > shown.length) {
+				const more = document.createElement("div");
+				more.className = "mc-personal mc-more";
+				more.textContent = `+${personal.length - shown.length}`;
+				cell.appendChild(more);
+			}
+		}
+
+		if (holidays.length) {
+			const hd = document.createElement("div");
+			hd.className = "mc-holiday";
+			hd.textContent = holidays.slice(0, this.config.maxHolidaysPerDay).join(" · ");
+			cell.appendChild(hd);
+		}
+
+		return cell;
 	},
 
 	getDom () {
@@ -148,36 +243,12 @@ Module.register("MMM-MonthCalendar", {
 
 		const daysInMonth = new Date(year, month + 1, 0).getDate();
 		for (let d = 1; d <= daysInMonth; d++) {
-			const cell = document.createElement("div");
-			cell.className = "mc-day";
-			if (d === today) cell.className += " mc-today";
+			grid.appendChild(this.buildCell(new Date(year, month, d), { isToday: d === today }));
+		}
 
-			const holidays = this.config.showHolidays ? this.holidaysFor(year, month, d) : [];
-			if (holidays.length) cell.className += " mc-has-holiday";
-
-			const num = document.createElement("div");
-			num.className = "mc-num";
-			num.textContent = d;
-			cell.appendChild(num);
-
-			if (this.config.showNamedays) {
-				const names = this.namesFor(month, d);
-				if (names.length) {
-					const nd = document.createElement("div");
-					nd.className = "mc-names dimmed";
-					nd.textContent = names.slice(0, this.config.maxNamesPerDay).join(", ");
-					cell.appendChild(nd);
-				}
-			}
-
-			if (holidays.length) {
-				const hd = document.createElement("div");
-				hd.className = "mc-holiday";
-				hd.textContent = holidays.slice(0, this.config.maxHolidaysPerDay).join(" · ");
-				cell.appendChild(hd);
-			}
-
-			grid.appendChild(cell);
+		const trailing = this.trailingDays(year, month, today);
+		for (let i = 1; i <= trailing; i++) {
+			grid.appendChild(this.buildCell(new Date(year, month + 1, i), { isNext: true }));
 		}
 
 		wrapper.appendChild(grid);

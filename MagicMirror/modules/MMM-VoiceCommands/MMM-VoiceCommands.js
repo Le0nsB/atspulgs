@@ -84,10 +84,8 @@ Module.register("MMM-VoiceCommands", {
 			{ phrases: ["tieši laikā", "tieši labi", "normāli", "vidēji"], notification: "ROUTINES_FEEDBACK", payload: "ok", label: "Treniņš: tieši laikā" },
 			{ phrases: ["par grūtu", "pārāk grūts", "bija grūts", "grūts"], notification: "ROUTINES_FEEDBACK", payload: "hard", label: "Treniņš: par grūtu" },
 
-			// --- uzdevumi/iepirkumi (skat. MMM-TodoList; dati no Todoist) ---
-			{ phrases: ["parādi uzdevumus", "rādi uzdevumus", "uzdevumu saraksts", "uzdevumi"], notification: "PAGES_GOTO", payload: 6, label: "Uzdevumi" },
-			{ phrases: ["uzdevums pabeigts", "uzdevumu pabeidzu", "pabeidzu uzdevumu", "izdarīju uzdevumu"], notification: "TODO_COMPLETE", payload: { list: "tasks" }, label: "Uzdevums pabeigts" },
-			{ phrases: ["pirkums nopirkts", "nopirku pirkumu", "atzīmē pirkumu", "pirkums pabeigts"], notification: "TODO_COMPLETE", payload: { list: "shopping" }, label: "Pirkums nopirkts" }
+			// --- plānotie notikumi (skat. MMM-CalendarAgenda; dati no Google kalendāra) ---
+			{ phrases: ["kas plānots", "kas ieplānots", "parādi plānus", "rādi plānus", "darba kārtība", "plāni"], notification: "PAGES_GOTO", payload: 6, label: "Plānotais" }
 		]
 	},
 

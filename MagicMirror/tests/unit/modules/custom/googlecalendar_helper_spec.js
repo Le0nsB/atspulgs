@@ -102,6 +102,30 @@ describe("MMM-GoogleCalendar node_helper", () => {
 		});
 	});
 
+	describe("poll", () => {
+		const item = { summary: "Tikšanās", start: { dateTime: "2026-03-05T10:00:00Z" }, end: { dateTime: "2026-03-05T11:00:00Z" } };
+
+		beforeEach(() => {
+			helper.config = { updateInterval: 60000, maximumNumberOfDays: 30 };
+			helper.refreshToken = "rt";
+			helper.getAccessToken = vi.fn().mockResolvedValue("at");
+		});
+
+		it("sūta GCAL_DATA tikai, kad notikumi mainījušies", async () => {
+			const items = [item];
+			vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ items }) })));
+
+			await helper.poll();
+			await helper.poll();
+			expect(helper.sendSocketNotification).toHaveBeenCalledTimes(1);
+
+			items.push({ ...item, summary: "Jauns" });
+			await helper.poll();
+			expect(helper.sendSocketNotification).toHaveBeenCalledTimes(2);
+			expect(helper.scheduleNext).toHaveBeenCalledTimes(3);
+		});
+	});
+
 	describe("normalize", () => {
 		it("laika notikumam patur precīzu laiku", () => {
 			const item = {

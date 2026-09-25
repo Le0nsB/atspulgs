@@ -15,7 +15,9 @@ describe("MMM-MonthCalendar data", () => {
 		mod.config = JSON.parse(JSON.stringify(mod.defaults));
 		mod.namedays = { "12-25": ["Stella", "Silva", "Sandra"] };
 		mod.holidays = {};
+		mod.personal = {};
 		mod.eventsBySender = {};
+		mod.sendersPersonal = {};
 		mod.updateDom = vi.fn();
 	});
 
@@ -58,10 +60,38 @@ describe("MMM-MonthCalendar data", () => {
 			expect(mod.holidaysFor(2026, 5, 23)).toEqual(["Līgo"]);
 		});
 
+		it("MMM-GoogleCalendar notikumus liek atsevišķi kā personīgos, ar laiku", () => {
+			mod.notificationReceived("CALENDAR_EVENTS", [
+				{ title: "Zobārsts", startDate: new Date(2026, 9, 2, 14, 30).getTime(), endDate: new Date(2026, 9, 2, 15, 0).getTime(), fullDayEvent: false },
+				{ title: "Atvaļinājums", startDate: new Date(2026, 9, 2).getTime(), endDate: new Date(2026, 9, 4).getTime(), fullDayEvent: true }
+			], { identifier: "gcal", name: "MMM-GoogleCalendar" });
+
+			expect(mod.holidaysFor(2026, 9, 2)).toEqual([]);
+			const day = mod.personalFor(2026, 9, 2);
+			expect(day.map((p) => p.title)).toEqual(["Atvaļinājums", "Zobārsts"]);
+			expect(day[0].time).toBe("");
+			expect(day[1].time).toMatch(/14.30/);
+			// Visas dienas beigu datums ir izslēdzošs: 2.–3. okt., ne 4.
+			expect(mod.personalFor(2026, 9, 3).map((p) => p.title)).toEqual(["Atvaļinājums"]);
+			expect(mod.personalFor(2026, 9, 4)).toEqual([]);
+		});
+
 		it("ignorē, kad showHolidays = false", () => {
 			mod.config.showHolidays = false;
 			mod.notificationReceived("CALENDAR_EVENTS", [{ title: "X", startDate: String(Date.UTC(2026, 0, 1)), fullDayEvent: true }], { identifier: "c" });
 			expect(mod.holidaysFor(2026, 0, 1)).toEqual([]);
+		});
+	});
+
+	describe("trailingDays", () => {
+		it("aizpilda pēdējo nedēļu ar nākamā mēneša dienām", () => {
+			// 2026. g. 30. septembris ir trešdiena -> 1.–4. oktobris
+			expect(mod.trailingDays(2026, 8, 10)).toBe(4);
+		});
+
+		it("mēneša beigās pievieno papildu nedēļu, lai redz minDaysAhead dienas", () => {
+			// 29. sept.: šajā mēnesī atlikušas tikai 1 diena, vajag vēl 6 -> 4 + 7
+			expect(mod.trailingDays(2026, 8, 29)).toBe(11);
 		});
 	});
 });

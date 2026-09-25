@@ -14,6 +14,12 @@ diena(s)**, bet **svētku dienas** izceltas un parakstītas.
   mēneša svētkus, pievieno atsevišķu (neredzamu) `calendar` instanci ar
   `broadcastPastEvents: true` — skat. `config/config.js`.
 - Vairākas `calendar` instances tiek apvienotas un dublikāti noņemti.
+- **Personīgie notikumi** no [MMM-GoogleCalendar](../MMM-GoogleCalendar/README.md)
+  tiek rādīti atsevišķi no svētkiem — zilā krāsā, ar sākuma laiku, un diena
+  iezīmēta ar zilu malu.
+- Režģis turpinās ar **nākamā mēneša dienām** (vismaz līdz nedēļas beigām un
+  vismaz `minDaysAhead` dienas pēc šodienas), lai mēneša beigās redz arī
+  nākamās nedēļas plānus.
 - Visas dienas notikumiem iCal beigu datums ir izslēdzošs, tāpēc modulis
   atņem vienu dienu (piem. svētdienas svētki neieķeksē pirmdienu).
 
@@ -27,6 +33,9 @@ diena(s)**, bet **svētku dienas** izceltas un parakstītas.
 | `showNamedays` | `true` | Rādīt vārda dienas |
 | `showHolidays` | `true` | Rādīt svētkus no `calendar` moduļa |
 | `maxHolidaysPerDay` | `2` | Cik svētku nosaukumu rādīt vienā šūnā |
+| `personalSources` | `["MMM-GoogleCalendar"]` | Moduļi, kuru notikumi ir personīgie plāni (zilā krāsā), nevis svētki |
+| `maxPersonalPerDay` | `2` | Cik personīgos notikumus rādīt vienā šūnā (pārējie kā „+N") |
+| `minDaysAhead` | `7` | Cik dienas pēc šodienas vienmēr redzamas režģī |
 | `updateOnMidnight` | `true` | Automātiski pārzīmēt pusnaktī (mainās „šodiena") |
 | `weekdayLabels` | `["Pr","Ot","Tr","Ce","Pk","Se","Sv"]` | Nedēļas dienu galvenes (pirmdien–svētdien) |
 | `monthLabels` | `["Janvāris", …, "Decembris"]` | Mēnešu nosaukumi virsrakstam |

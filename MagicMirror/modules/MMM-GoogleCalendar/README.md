@@ -77,7 +77,7 @@ Ja kods paliek neizmantots (parasti ~30 min), spogulis pats izveido jaunu
 
 | Opcija | Noklusējums | Apraksts |
 |---|---|---|
-| `updateInterval` | `900000` (15 min) | Cik bieži (ms) vaicāt Google (min. 5 min) |
+| `updateInterval` | `60000` (1 min) | Cik bieži (ms) vaicāt Google (min. 1 min). Ekrāns tiek pārzīmēts tikai, ja notikumi mainījušies |
 | `maximumNumberOfDays` | `60` | Cik tālu uz priekšu ielādēt notikumus (der arī MMM-MonthCalendar mēneša skatam) |
 | `maxUpcoming` | `5` | Cik notikumus rādīt paša moduļa sarakstā |
 

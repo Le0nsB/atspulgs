@@ -13,7 +13,7 @@
  */
 Module.register("MMM-GoogleCalendar", {
 	defaults: {
-		updateInterval: 15 * 60 * 1000, // personīgais kalendārs mainās retāk nekā, piem., Spotify
+		updateInterval: 60 * 1000, // izmaiņas Google kalendārā parādās ~minūtes laikā bez restarta
 		maximumNumberOfDays: 60, // cik tālu uz priekšu ielādēt (der arī MMM-MonthCalendar)
 		maxUpcoming: 5 // cik notikumus rādīt paša moduļa sarakstā
 	},
@@ -28,6 +28,11 @@ Module.register("MMM-GoogleCalendar", {
 		this.pairing = null; // { userCode, verificationUrl, expiresAt }
 		this.pairingError = null;
 		this.sendSocketNotification("GCAL_CONFIG", this.config);
+		// Dati pienāk tikai, kad kalendārā kas mainās, tāpēc "Tagad"/"Šodien"
+		// un beigušos notikumu pazušanu pārzīmējam paši reizi minūtē.
+		setInterval(() => {
+			if (!this.pairing && this.events.length) this.updateDom();
+		}, 60 * 1000);
 	},
 
 	socketNotificationReceived (notification, payload) {
@@ -170,9 +175,22 @@ Module.register("MMM-GoogleCalendar", {
 		return li;
 	},
 
-	formatWhen (e) {
+	// "Tagad" / "Šodien 14:00" / "Rīt" / "Pk 2.10. 18:30" — lai uzreiz redz,
+	// cik tālu notikums ir, nevis jāpārrēķina datums galvā.
+	formatWhen (e, now = new Date()) {
+		if (e.startDate <= now.getTime() && e.endDate > now.getTime()) return "Tagad";
 		const d = new Date(e.startDate);
-		const datePart = d.toLocaleDateString("lv-LV", { day: "numeric", month: "numeric" });
+		const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+		const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+		const diff = Math.round((day - today) / (24 * 60 * 60 * 1000));
+		let datePart;
+		if (diff === 0) datePart = "Šodien";
+		else if (diff === 1) datePart = "Rīt";
+		else if (diff === 2) datePart = "Parīt";
+		else {
+			const wd = ["Sv", "Pr", "Ot", "Tr", "Ce", "Pk", "Se"][d.getDay()];
+			datePart = `${wd} ${d.getDate()}.${d.getMonth() + 1}.`;
+		}
 		if (e.fullDayEvent) return datePart;
 		const timePart = d.toLocaleTimeString("lv-LV", { hour: "2-digit", minute: "2-digit" });
 		return `${datePart} ${timePart}`;

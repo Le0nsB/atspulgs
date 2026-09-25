@@ -295,14 +295,14 @@ let config = {
 			config: {}
 		},
 		{
-			// Uzdevumu un iepirkumu saraksts — atsevišķa lapa. Dati nāk no
-			// Todoist (divi projekti, skat. moduļa README.md par apiToken
-			// MagicMirror/secrets.js). Pievienošana/dzēšana notiek Todoist
-			// lietotnē telefonā; spogulis rāda un ar balsi ("uzdevums
-			// pabeigts" / "pirkums nopirkts") pabeidz augšējo ierakstu.
-			module: "MMM-TodoList",
+			// Plānotie notikumi nākamajām 14 dienām, sagrupēti pa dienām —
+			// atsevišķa lapa. Dati nāk no MMM-GoogleCalendar (CALENDAR_EVENTS),
+			// tāpēc te nav vajadzīga sava pieslēgšanās.
+			module: "MMM-CalendarAgenda",
 			position: "middle_center",
-			config: {}
+			config: {
+				daysAhead: 14
+			}
 		},
 		{
 			// Klātbūtnes noteikšana ar kameru (MediaPipe FaceDetector, NAV identitātes
@@ -363,7 +363,7 @@ let config = {
 					["MMM-NewsDetail"],
 					["MMM-SpotifyDetail"],
 					["MMM-Routines"],
-					["MMM-TodoList"]
+					["MMM-CalendarAgenda"]
 				]
 			}
 		},

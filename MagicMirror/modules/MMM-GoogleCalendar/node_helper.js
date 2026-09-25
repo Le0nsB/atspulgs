@@ -10,7 +10,7 @@
  * Vajadzīgs OAuth klients (Client ID + Client secret), ko VIENREIZ
  * izveido "administrators" Google Cloud Console (tips "TV and Limited
  * Input devices") — skat. README.md. Tas glabājas MagicMirror/secrets.js
- * (servera pusē), tāpat kā Spotify/Todoist atslēgas.
+ * (servera pusē), tāpat kā Spotify atslēgas.
  *
  * Pēc lietotāja apstiprinājuma saņemtais refresh token tiek saglabāts
  * lokāli šī moduļa mapē (`token.json`, skat. .gitignore) — tas AIZVIETO
@@ -59,6 +59,7 @@ module.exports = NodeHelper.create({
 		this.timer = null;
 		this.failures = 0;
 		this.pairing = null; // { deviceCode, interval, expiresAt, timer }
+		this.lastSent = null; // pēdējie nosūtītie notikumi (JSON), lai nesūtītu tos pašus atkārtoti
 	},
 
 	socketNotificationReceived (notification, payload) {
@@ -69,6 +70,7 @@ module.exports = NodeHelper.create({
 			return;
 		}
 		this.config = payload;
+		this.lastSent = null; // pārlūks (pār)startējis — nākamie dati jāsūta obligāti
 		this.clientId = client.clientId;
 		this.clientSecret = client.clientSecret;
 		this.loadToken();
@@ -216,7 +218,7 @@ module.exports = NodeHelper.create({
 	scheduleNext () {
 		if (!this.config || !this.refreshToken) return;
 		clearTimeout(this.timer);
-		const base = Math.max(5 * 60 * 1000, this.config.updateInterval);
+		const base = Math.max(60 * 1000, this.config.updateInterval);
 		const delay = this.failures > 0
 			? Math.min(base * 2 ** Math.min(this.failures, 5), 30 * 60 * 1000)
 			: base;
@@ -272,7 +274,13 @@ module.exports = NodeHelper.create({
 			const events = (data.items || []).map((item) => this.normalize(item)).filter(Boolean);
 			Log.info(`[MMM-GoogleCalendar] ielādēti ${events.length} notikumi (no ${(data.items || []).length} API atbildē)`);
 			this.failures = 0;
-			this.sendSocketNotification("GCAL_DATA", events);
+			// Aptaujājam katru minūti, bet ekrānu pārzīmējam tikai, ja kalendārā
+			// tiešām kas mainījies — citādi visi kalendāra moduļi mirgotu.
+			const json = JSON.stringify(events);
+			if (json !== this.lastSent) {
+				this.lastSent = json;
+				this.sendSocketNotification("GCAL_DATA", events);
+			}
 		} catch (err) {
 			this.failures += 1;
 			Log.error(`[MMM-GoogleCalendar] ${err.message} (kļūda #${this.failures})`);
@@ -289,11 +297,21 @@ module.exports = NodeHelper.create({
 		if (!start) return null;
 		const end = item.end && (item.end.dateTime || item.end.date);
 		const fullDayEvent = !!(item.start.date && !item.start.dateTime);
+		const startDate = parseGoogleTime(start);
 		return {
 			title: item.summary || "",
-			startDate: new Date(start).getTime(),
-			endDate: end ? new Date(end).getTime() : new Date(start).getTime(),
+			startDate,
+			endDate: end ? parseGoogleTime(end) : startDate,
 			fullDayEvent
 		};
 	}
 });
+
+// Visas dienas notikumiem Google dod tikai datumu ("2026-03-05"), ko
+// `new Date()` parsētu kā UTC pusnakti — tad Rīgā tas būtu 03:00 un beigu
+// datums (izslēdzošs) iekristu nākamajā dienā. Parsējam kā VIETĒJO pusnakti.
+function parseGoogleTime (value) {
+	const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+	if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime();
+	return new Date(value).getTime();
+}
