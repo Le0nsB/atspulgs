@@ -47,4 +47,29 @@ describe("MMM-WeekWeather helpers", () => {
 			expect(diffDays).toBeLessThan(7);
 		});
 	});
+
+	describe("WEEKWEATHER_SHOW_DAY (\"laikapstākļi rīt\")", () => {
+		beforeEach(() => {
+			mod.updateDom = vi.fn();
+			mod.focusOffset = 0;
+		});
+
+		it("izceļ rītdienu un pēc focusDuration atgriežas pie šodienas", () => {
+			vi.useFakeTimers();
+			mod.notificationReceived("WEEKWEATHER_SHOW_DAY", 1);
+			expect(mod.focusOffset).toBe(1);
+			const now = new Date();
+			expect(mod.focusYmd()).toBe(mod.ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)));
+			vi.advanceTimersByTime(mod.config.focusDuration + 10);
+			expect(mod.focusOffset).toBe(0);
+			vi.useRealTimers();
+		});
+
+		it("ierobežo nobīdi robežās 0..6", () => {
+			mod.notificationReceived("WEEKWEATHER_SHOW_DAY", 42);
+			expect(mod.focusOffset).toBe(6);
+			mod.notificationReceived("WEEKWEATHER_SHOW_DAY", -3);
+			expect(mod.focusOffset).toBe(0);
+		});
+	});
 });

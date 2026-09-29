@@ -83,3 +83,6 @@ yarn.lock
 
 # Vitest temporary test files
 tests/**/.tmp/
+
+# Lokālie dati (Google tokens, treniņu datubāze) — ārpus modules/, jo tā mape ir pieejama pa HTTP
+/data/

@@ -10,12 +10,20 @@
  * Pēc pieslēgšanās rāda tuvākos notikumus UN pārraida tos kā
  * `CALENDAR_EVENTS` (tāpat kā iebūvētais `calendar` modulis), tāpēc tie
  * automātiski parādās arī MMM-MonthCalendar mēneša skatā.
+ *
+ * Atgādinājumi: `reminderMinutes` pirms notikuma sākuma (un visas dienas
+ * notikumiem — tās dienas rītā `allDayReminderTime`) parāda paziņojumu caur
+ * `alert` moduli un pārraida CALENDAR_REMINDER (pamodina ekrānsaudzētāju).
  */
 Module.register("MMM-GoogleCalendar", {
 	defaults: {
 		updateInterval: 60 * 1000, // izmaiņas Google kalendārā parādās ~minūtes laikā bez restarta
 		maximumNumberOfDays: 60, // cik tālu uz priekšu ielādēt (der arī MMM-MonthCalendar)
-		maxUpcoming: 5 // cik notikumus rādīt paša moduļa sarakstā
+		maxUpcoming: 5, // cik notikumus rādīt paša moduļa sarakstā
+		icsUpdateInterval: 5 * 60 * 1000, // Outlook/ICS kalendāru aptaujas biežums (secrets.js calendarFeeds)
+		reminderMinutes: [15], // atgādināt tik minūtes pirms sākuma ([] = izslēgts)
+		allDayReminderTime: "08:00", // visas dienas notikumiem ("" = neatgādināt)
+		reminderDuration: 20 * 1000 // cik ilgi paziņojums redzams
 	},
 
 	getStyles () {
@@ -33,6 +41,50 @@ Module.register("MMM-GoogleCalendar", {
 		setInterval(() => {
 			if (!this.pairing && this.events.length) this.updateDom();
 		}, 60 * 1000);
+		this.reminded = new Set();
+		setInterval(() => this.checkReminders(), 30 * 1000);
+	},
+
+	// Atgriež notikumus, par kuriem TAGAD jāatgādina (katru tikai vienreiz).
+	dueReminders (now = Date.now()) {
+		if (!this.reminded) this.reminded = new Set();
+		const due = [];
+		const minutes = Array.isArray(this.config.reminderMinutes) ? this.config.reminderMinutes : [this.config.reminderMinutes];
+		for (const e of this.events) {
+			if (e.fullDayEvent) {
+				const m = /^(\d{1,2}):(\d{2})$/.exec(this.config.allDayReminderTime || "");
+				if (!m) continue;
+				const d = new Date(e.startDate);
+				const at = new Date(d.getFullYear(), d.getMonth(), d.getDate(), Number(m[1]), Number(m[2])).getTime();
+				// Tikai tās dienas laikā (ne, ja spogulis ieslēgts vakarā pēc notikuma).
+				const key = `${e.id}:${e.startDate}:day`;
+				if (now >= at && now < at + 4 * 60 * 60 * 1000 && !this.reminded.has(key)) due.push({ key, event: e, minutes: null });
+				continue;
+			}
+			for (const min of minutes) {
+				if (!(min >= 0)) continue;
+				const at = e.startDate - min * 60 * 1000;
+				const key = `${e.id}:${e.startDate}:${min}`;
+				if (now >= at && now < e.startDate && !this.reminded.has(key)) due.push({ key, event: e, minutes: min });
+			}
+		}
+		return due;
+	},
+
+	checkReminders () {
+		if (this.pairing) return;
+		for (const { key, event } of this.dueReminders()) {
+			this.reminded.add(key);
+			const when = this.formatWhen(event);
+			this.sendNotification("CALENDAR_REMINDER", event);
+			this.sendNotification("SHOW_ALERT", {
+				type: "notification",
+				title: `<i class="fa fa-bell"></i> ${event.fullDayEvent ? "Šodien" : "Atgādinājums"}`,
+				message: event.fullDayEvent ? event.title : `${event.title} — ${when}`,
+				messageType: "text", // notikuma nosaukums nāk no kalendāra — nerādām kā HTML
+				timer: this.config.reminderDuration
+			});
+		}
 	},
 
 	socketNotificationReceived (notification, payload) {
@@ -63,6 +115,11 @@ Module.register("MMM-GoogleCalendar", {
 				// (un jebkuram citam klausītājam) izmantot šos notikumus.
 				this.sendNotification("CALENDAR_EVENTS", this.events);
 				this.updateDom(300);
+				this.checkReminders();
+				break;
+			case "GCAL_PHONE_LINK":
+				// Telefona lapas adrese + QR kods — rāda MMM-CalendarAgenda.
+				this.sendNotification("CALENDAR_PHONE_LINK", payload);
 				break;
 			case "GCAL_ERROR":
 				this.hasError = payload || true;

@@ -18,14 +18,15 @@ describe("MMM-TodoList", () => {
 				innerHTML: "",
 				children: [],
 				appendChild (child) { this.children.push(child); }
-			})
+			}),
+			createTextNode: (text) => ({ nodeType: 3, textContent: text })
 		};
 		require(MODULE_PATH);
 		mod.config = JSON.parse(JSON.stringify(mod.defaults));
 		mod.sendSocketNotification = vi.fn();
 		mod.tasks = [];
 		mod.shopping = [];
-		mod.hasError = false;
+		mod.loaded = false;
 	});
 
 	afterEach(() => vi.restoreAllMocks());
@@ -33,7 +34,7 @@ describe("MMM-TodoList", () => {
 	describe("TODO_COMPLETE pārsūtīšana", () => {
 		it("pārsūta uz node_helper ar to pašu sarakstu", () => {
 			mod.notificationReceived("TODO_COMPLETE", { list: "shopping" });
-			expect(mod.sendSocketNotification).toHaveBeenCalledWith("TODOLIST_COMPLETE", { list: "shopping" });
+			expect(mod.sendSocketNotification).toHaveBeenCalledWith("TODOLIST_COMPLETE", { list: "shopping", text: "" });
 		});
 
 		it("ignorē, ja payload nav saraksta nosaukuma", () => {
@@ -48,32 +49,46 @@ describe("MMM-TodoList", () => {
 	});
 
 	describe("socketNotificationReceived", () => {
-		it("TODOLIST_NO_CREDENTIALS iestata konfigurācijas kļūdu", () => {
+		it("TODOLIST_DATA aizpilda sarakstus", () => {
 			mod.updateDom = vi.fn();
-			mod.socketNotificationReceived("TODOLIST_NO_CREDENTIALS");
-			expect(mod.hasError).toBe("config");
+			mod.socketNotificationReceived("TODOLIST_DATA", {
+				tasks: [{ id: 1, content: "Izmazgāt veļu" }],
+				shopping: [{ id: 2, content: "Maize" }]
+			});
+			expect(mod.loaded).toBe(true);
+			expect(mod.tasks).toEqual([{ id: 1, content: "Izmazgāt veļu" }]);
+			expect(mod.shopping).toEqual([{ id: 2, content: "Maize" }]);
 			expect(mod.updateDom).toHaveBeenCalled();
 		});
 
-		it("TODOLIST_DATA aizpilda sarakstus un notīra kļūdu", () => {
+		it("TODOLIST_DONE parāda paziņojumu kā tekstu (ne HTML)", () => {
+			mod.sendNotification = vi.fn();
+			mod.socketNotificationReceived("TODOLIST_DONE", { list: "shopping", content: "<b>Piens</b>" });
+			expect(mod.sendNotification).toHaveBeenCalledWith("SHOW_ALERT", expect.objectContaining({
+				title: "Iepirkumi: atzīmēts", message: "<b>Piens</b>", messageType: "text"
+			}));
+		});
+
+		it("TODOLIST_PHONE_LINK saglabā adresi QR kodam", () => {
 			mod.updateDom = vi.fn();
-			mod.hasError = "kaut kas";
-			mod.socketNotificationReceived("TODOLIST_DATA", {
-				tasks: [{ id: "1", content: "Nopirkt pienu" }],
-				shopping: [{ id: "2", content: "Maize" }]
-			});
-			expect(mod.hasError).toBe(false);
-			expect(mod.tasks).toEqual([{ id: "1", content: "Nopirkt pienu" }]);
-			expect(mod.shopping).toEqual([{ id: "2", content: "Maize" }]);
+			mod.socketNotificationReceived("TODOLIST_PHONE_LINK", { url: "http://pi:8080/todo", qrSvg: "<svg/>" });
+			expect(mod.phoneLink.url).toBe("http://pi:8080/todo");
 		});
 	});
 
+	it("TODO_ADD pārsūta tekstu uz node_helper", () => {
+		mod.notificationReceived("TODO_ADD", { list: "shopping", text: "maizi" });
+		expect(mod.sendSocketNotification).toHaveBeenCalledWith("TODOLIST_ADD", { list: "shopping", text: "maizi" });
+	});
+
 	describe("buildColumn", () => {
-		it("tukšam sarakstam parāda \"Nekā nav\"", () => {
-			const col = mod.buildColumn("Uzdevumi", [], "fa-list-check");
+		it("tukšam sarakstam parāda tukšuma tekstu", () => {
+			mod.loaded = true;
+			const col = mod.buildColumn("Uzdevumi", [], "fa-list-check", "Nav neviena uzdevuma");
 			const list = col.children[1];
 			expect(list.children).toHaveLength(1);
 			expect(list.children[0].className).toBe("td-empty");
+			expect(list.children[0].innerText).toBe("Nav neviena uzdevuma");
 		});
 
 		it("apgriež pēc maxItems un parāda atlikušo skaitu", () => {

@@ -92,6 +92,7 @@ describe("MMM-GoogleCalendar node_helper", () => {
 		it("bez OAuth klienta (secrets.js tukšs) nosūta GCAL_NO_CLIENT un neiestata config", () => {
 			const fsMock = { existsSync: vi.fn(() => false), readFileSync: vi.fn() };
 			helper = loadHelper({ fsMock, secretsModule: { google: {} } });
+			helper.expressApp = { get: vi.fn(), post: vi.fn() }; // MagicMirror to iedod pirms start()
 			helper.start(); // reāli šis vienmēr izpildās pirms socketNotificationReceived (iestata this.config = null)
 			helper.sendSocketNotification = vi.fn();
 
@@ -248,6 +249,117 @@ describe("MMM-GoogleCalendar node_helper", () => {
 
 			expect(helper.pairing).toBeNull();
 			expect(helper.beginPairing).toHaveBeenCalled();
+		});
+	});
+
+	describe("buildEvent (telefona forma -> Google notikums)", () => {
+		it("notikums ar laiku bez beigām ilgst stundu telefona laika joslā", () => {
+			const e = helper.buildEvent({ title: "  Zobārsts ", date: "2026-10-01", start: "15:30", timeZone: "Europe/Riga" });
+			expect(e.summary).toBe("Zobārsts");
+			expect(e.start).toEqual({ dateTime: "2026-10-01T15:30:00", timeZone: "Europe/Riga" });
+			expect(e.end).toEqual({ dateTime: "2026-10-01T16:30:00", timeZone: "Europe/Riga" });
+			expect(e.extendedProperties.private.createdBy).toBe("magicmirror");
+		});
+
+		it("visas dienas notikuma beigas ir nākamā diena (arī pāri mēneša robežai)", () => {
+			const e = helper.buildEvent({ title: "Ekskursija", date: "2026-10-31", allDay: true });
+			expect(e.start).toEqual({ date: "2026-10-31" });
+			expect(e.end).toEqual({ date: "2026-11-01" });
+		});
+
+		it("vēlu vakarā bez beigām nepārlec pāri pusnaktij", () => {
+			expect(helper.buildEvent({ title: "X", date: "2026-10-01", start: "23:15" }).end.dateTime).toBe("2026-10-01T23:59:00");
+		});
+
+		it("noraida tukšu nosaukumu, nepareizu datumu un beigas pirms sākuma", () => {
+			expect(() => helper.buildEvent({ title: " ", date: "2026-10-01", allDay: true })).toThrow();
+			expect(() => helper.buildEvent({ title: "X", date: "01.10.2026", allDay: true })).toThrow();
+			expect(() => helper.buildEvent({ title: "X", date: "2026-10-01", start: "15:00", end: "14:00" })).toThrow(/Beigām/);
+		});
+
+		it("nederīga laika josla -> servera josla", () => {
+			const e = helper.buildEvent({ title: "X", date: "2026-10-01", start: "10:00", timeZone: "Nav/Tāda" });
+			expect(e.start.timeZone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
+		});
+	});
+
+	describe("canWrite", () => {
+		it("vecs tokens bez scope ir tikai lasāms, jaunais ar calendar — rakstāms", () => {
+			helper.grantedScopes = [];
+			expect(helper.canWrite()).toBe(false);
+			helper.grantedScopes = ["https://www.googleapis.com/auth/calendar.readonly"];
+			expect(helper.canWrite()).toBe(false);
+			helper.grantedScopes = ["https://www.googleapis.com/auth/calendar"];
+			expect(helper.canWrite()).toBe(true);
+		});
+	});
+
+	describe("ICS (Outlook) kalendāri", () => {
+		const ICS = [
+			"BEGIN:VCALENDAR",
+			"VERSION:2.0",
+			"BEGIN:VEVENT",
+			"UID:weekly-1",
+			"SUMMARY:Komandas sapulce",
+			"DTSTART;TZID=FLE Standard Time:20261006T100000",
+			"DTEND;TZID=FLE Standard Time:20261006T110000",
+			"RRULE:FREQ=WEEKLY;COUNT=3",
+			"END:VEVENT",
+			"BEGIN:VEVENT",
+			"UID:allday-1",
+			"SUMMARY:Atvaļinājums",
+			"DTSTART;VALUE=DATE:20261010",
+			"DTEND;VALUE=DATE:20261011",
+			"END:VEVENT",
+			"BEGIN:VEVENT",
+			"UID:cancelled",
+			"STATUS:CANCELLED",
+			"SUMMARY:Atcelts",
+			"DTSTART:20261008T090000Z",
+			"DTEND:20261008T100000Z",
+			"END:VEVENT",
+			"END:VCALENDAR"
+		].join("\r\n");
+
+		it("izvērš atkārtotos notikumus un pārvērš tos spoguļa formātā", () => {
+			const events = helper.parseIcsEvents(ICS, "Outlook", new Date("2026-10-01"), new Date("2026-11-01"));
+			const weekly = events.filter((e) => e.title === "Komandas sapulce");
+			expect(weekly).toHaveLength(3);
+			// FLE Standard Time (Outlook Windows josla) = Rīga, oktobrī UTC+3
+			expect(new Date(weekly[0].startDate).toISOString()).toBe("2026-10-06T07:00:00.000Z");
+			expect(weekly[0].endDate - weekly[0].startDate).toBe(60 * 60 * 1000);
+			expect(weekly[0]).toMatchObject({ fullDayEvent: false, fromMirror: false, source: "Outlook" });
+			expect(new Set(events.map((e) => e.id)).size).toBe(events.length);
+		});
+
+		it("visas dienas notikums ir fullDayEvent, atcelti netiek rādīti", () => {
+			const events = helper.parseIcsEvents(ICS, "Outlook", new Date("2026-10-01"), new Date("2026-11-01"));
+			const allDay = events.find((e) => e.title === "Atvaļinājums");
+			expect(allDay.fullDayEvent).toBe(true);
+			expect(events.some((e) => e.title === "Atcelts")).toBe(false);
+		});
+
+		it("publish apvieno Google un ICS notikumus laika secībā un nesūta atkārtoti", () => {
+			helper.googleEvents = [{ id: "g", title: "G", startDate: 200, endDate: 300 }];
+			helper.icsEvents = [{ id: "o", title: "O", startDate: 100, endDate: 150 }];
+			helper.lastSent = null;
+			helper.publish();
+			helper.publish();
+			expect(helper.sendSocketNotification).toHaveBeenCalledTimes(1);
+			expect(helper.sendSocketNotification.mock.calls[0][1].map((e) => e.id)).toEqual(["o", "g"]);
+		});
+
+		it("bez Google klienta, bet ar Outlook — nerāda konfigurācijas kļūdu", () => {
+			const fsMock = { existsSync: vi.fn(() => false), readFileSync: vi.fn() };
+			helper = loadHelper({ fsMock });
+			helper.sendSocketNotification = vi.fn();
+			helper.sendPhoneLink = vi.fn();
+			helper.loadFeeds = () => helper.normalizeFeeds([{ name: "Outlook", url: "webcal://x/cal.ics" }, { url: "" }]);
+			helper.pollIcs = vi.fn();
+			helper.socketNotificationReceived("GCAL_CONFIG", { maximumNumberOfDays: 30 });
+			expect(helper.feeds).toEqual([{ name: "Outlook", url: "https://x/cal.ics" }]);
+			expect(helper.pollIcs).toHaveBeenCalled();
+			expect(helper.sendSocketNotification).not.toHaveBeenCalledWith("GCAL_NO_CLIENT");
 		});
 	});
 });

@@ -1,28 +1,32 @@
 # MMM-TodoList
 
-Divas kolonnas — dienas **uzdevumi** un **iepirkumu saraksts** — no
-[Todoist](https://todoist.com), lasītas ar Todoist REST API. Ieraksti,
-pievienošana un dzēšana notiek pašā Todoist lietotnē telefonā (vai
-jebkurā Todoist klientā); spogulis tos tikai rāda un ļauj pabeigt ar
-balsi.
+Spoguļa paša **uzdevumu** un **iepirkumu** saraksts — bez ārēja servisa,
+konta vai API atslēgas. Spogulī redzamas divas kolonnas; sarakstu labo
+telefonā vai ar balsi, un izmaiņas spogulī parādās uzreiz.
 
-## Sagatavošana
+## Kā lietot
 
-1. Todoist kontā izveido divus projektus, piem. **Uzdevumi** un
-   **Iepirkumi** (nosaukumus var mainīt konfigurācijā).
-2. Todoist iestatījumos → *Integrations* → *Developer* nokopē savu
-   **API token**.
-3. Ieraksti to failā `MagicMirror/secrets.js` (nevis `config/secrets.js` —
-   skat. `secrets.js.sample` par to, kāpēc):
+- **Telefonā:** `http://<pi-ip>:8080/todo` — noskenē QR kodu saraksta lapā
+  spogulī vai tālvadībā (`/remote.html`) spied **Saraksti**. Tur var
+  pievienot, atzīmēt kā izdarītu, labot (pieskaries tekstam), pārkārtot
+  (↑ ↓) un dzēst. Atzīmētie ieraksti paliek sadaļā "Atzīmētie" (var atjaunot)
+  un pēc nedēļas izdzēšas paši.
+- **Ar balsi** ("Spoguli, …", skat. MMM-VoiceCommands):
+  - "parādi uzdevumus" / "iepirkumu saraksts" — pāriet uz šo lapu
+  - **"nopirku pienu"** — atzīmē iepirkumu sarakstā ierakstu, kas vislabāk
+    sakrīt ar teikto ("pienu" ≈ "Piens": locījumi un nelielas atpazīšanas
+    kļūdas netraucē). Ja iepirkumos nav, meklē uzdevumos.
+  - **"izdarīju veļu"** / "atzīmē …" — tas pats, sākot ar uzdevumiem
+  - **"pievieno iepirkumiem maizi"** / "pievieno maizi" — jauns iepirkums;
+    "pievieno uzdevumu …" — jauns uzdevums
+  - "uzdevums pabeigts" / "pirkums nopirkts" (bez nosaukuma) — atzīmē
+    sarakstā **augšējo** ierakstu
 
-```js
-module.exports = {
-	// ...
-	todoist: {
-		apiToken: "TAVS_TODOIST_API_TOKEN"
-	}
-};
-```
+  Pēc katras balss darbības spogulis īsi parāda paziņojumu ("Iepirkumi:
+  atzīmēts — Piens" vai "Sarakstā nav atrasts: …").
+
+> Telefona lapa strādā tikai mājas tīklā (MagicMirror `ipWhitelist` —
+> lokālās adreses), tāpēc ārpus mājām sarakstu labot nevar.
 
 ## Konfigurācija
 
@@ -36,46 +40,43 @@ module.exports = {
 
 | Opcija | Noklusējums | Apraksts |
 |---|---|---|
-| `updateInterval` | `60000` | Cik bieži (ms) vaicāt Todoist (min. 15000) |
-| `tasksProjectName` | `"Uzdevumi"` | Todoist projekta nosaukums uzdevumiem |
-| `shoppingProjectName` | `"Iepirkumi"` | Todoist projekta nosaukums pirkumu sarakstam |
-| `tasksHeader` | `"Uzdevumi"` | Virsraksts uz ekrāna |
-| `shoppingHeader` | `"Iepirkumi"` | Virsraksts uz ekrāna |
-| `maxItems` | `8` | Cik ierakstus rādīt katrā kolonnā |
+| `header` | `"Saraksti"` | Lapas virsraksts |
+| `tasksHeader` | `"Uzdevumi"` | Kolonnas virsraksts |
+| `shoppingHeader` | `"Iepirkumi"` | Kolonnas virsraksts |
+| `maxItems` | `10` | Cik ierakstus rādīt katrā kolonnā (pārējie — "+N vēl") |
+| `showPhoneLink` | `true` | QR kods un adrese uz telefona lapu |
+| `showFeedback` | `true` | Īss paziņojums pēc balss darbības |
 
-## Lapu pārslēdzējs (MMM-Pages)
+Kā atsevišķa MMM-Pages lapa: `pages: [ …, ["MMM-TodoList"] ]` (šajā projektā — lapa 7).
 
-```js
-{
-	module: "MMM-Pages",
-	config: {
-		pages: [
-			// ...
-			["MMM-TodoList"]
-		]
-	}
-}
+Poga tālvadībā — `config/custom_menu.json`:
+
+```json
+{ "id": "todo", "type": "link", "icon": "list-ul", "text": "Saraksti", "url": "todo" }
 ```
 
-## Balss komandas
+## Dati
 
-`MMM-VoiceCommands` noklusējumā jau satur:
+SQLite datubāze `MagicMirror/data/todo.db` (iebūvētais `node:sqlite`, bez
+papildu atkarībām) — ārpus `modules/`, jo to MagicMirror atdod pa HTTP.
+Viena tabula `todo_items`:
 
-- "parādi uzdevumus" / "uzdevumu saraksts" — pāriet uz šo lapu
-- "uzdevums pabeigts" / "pabeidzu uzdevumu" / "izdarīju uzdevumu" —
-  pabeidz **vecāko** (augšējo) nepabeigto uzdevumu
-- "pirkums nopirkts" / "nopirku pirkumu" / "atzīmē pirkumu" — pabeidz
-  **vecāko** iepirkumu sarakstā
+| Lauks | Nozīme |
+|---|---|
+| `id` | Ieraksta numurs |
+| `list` | `tasks` (uzdevumi) vai `shopping` (iepirkumi) |
+| `content` | Teksts (līdz 200 zīmēm) |
+| `position` | Secība sarakstā |
+| `done`, `done_at` | Atzīmēts kā izdarīts un kad |
+| `created_at` | Kad pievienots |
 
-Tā kā runas atpazīšana nezina konkrētā ieraksta nosaukumu vārds pa
-vārdam, komandas vienmēr pabeidz sarakstā augšējo (Todoist noklusējuma
-kārtībā) ierakstu — tāpēc ērtāk strādā, ja svarīgākais/steidzamākais
-ieraksts katrā projektā tiek turēts saraksta augšā (Todoist ļauj
-pārkārtot ar vilkšanu).
+Visa loģika ir `node_helper.js` (nevis pārlūkā), tāpēc visi klienti (TV,
+MacBook balss klausītājs, telefons) redz vienu un to pašu sarakstu, un
+balss komanda, kas nonāk pie vairākiem klientiem, izpildās vienreiz.
 
-## Piezīmes
+## HTTP API (telefona lapai)
 
-- Ja projekts ar norādīto nosaukumu Todoist kontā nav atrasts, modulis
-  logā (konsolē) parāda kļūdu un turpina mēģināt nākamajā `updateInterval`.
-- Projektu ID tiek noskaidrots vienreiz pēc nosaukuma un kešots, tāpēc
-  projekta pārsaukšana Todoist prasīs MagicMirror restartu.
+`GET /todo/api/state`, `POST /todo/api/{add,done,rename,delete,move,clear-done}`
+ar JSON ķermeni (`{ list, content }`, `{ id, done }`, `{ id, content }`,
+`{ id }`, `{ id, direction: -1|1 }`, `{ list }`). POST pieņem tikai
+`Content-Type: application/json`.

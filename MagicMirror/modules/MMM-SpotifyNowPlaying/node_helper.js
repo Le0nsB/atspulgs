@@ -47,6 +47,8 @@ module.exports = NodeHelper.create({
 		this.failures = 0; // secīgu kļūdu skaits -> eksponenciāla atkāpšanās
 		this.lastIsPlaying = false; // pēdējais zināmais stāvoklis (priekš "toggle")
 		this.lastVolume = 50; // pēdējā zināmā skaļuma vērtība (priekš relatīva +/-)
+		this.lastControlKey = null;
+		this.lastControlAt = 0;
 	},
 
 	socketNotificationReceived (notification, payload) {
@@ -65,6 +67,12 @@ module.exports = NodeHelper.create({
 			// slieksni, lai nepārslogotu API).
 			if (Date.now() - this.lastPollAt > 3000) this.poll();
 		} else if (notification === "SPOTIFY_CONTROL") {
+			// Balss komandu saņem visi klienti (TV + MacBook mikrofons), un katrs to
+			// pārsūta šurp — citādi "nākamā dziesma" pārslēgtu divas dziesmas.
+			const key = `${payload && payload.action}:${payload && payload.value}`;
+			if (key === this.lastControlKey && Date.now() - this.lastControlAt < 1000) return;
+			this.lastControlKey = key;
+			this.lastControlAt = Date.now();
 			this.control(payload && payload.action, payload && payload.value);
 		}
 	},

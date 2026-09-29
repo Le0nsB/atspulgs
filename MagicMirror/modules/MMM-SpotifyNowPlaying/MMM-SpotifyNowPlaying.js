@@ -56,6 +56,8 @@ Module.register("MMM-SpotifyNowPlaying", {
 			this.hasError = false;
 			this.track = payload; // var būt null, ja nekas neskan
 			this.trackReceivedAt = Date.now();
+			// Citiem moduļiem (MMM-Radio aptur Spotify tikai tad, ja tas tiešām skan).
+			this.sendNotification("SPOTIFY_STATE", { isPlaying: Boolean(payload && payload.isPlaying) });
 			this.updateDom(500);
 			this.manageTicker();
 		} else if (notification === "SPOTIFY_ERROR") {

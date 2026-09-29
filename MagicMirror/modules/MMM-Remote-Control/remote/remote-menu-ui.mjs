@@ -828,10 +828,21 @@ function registerDynamicMenus (remote) {
 
       }
 
-      // Re-create buttons for already-registered dynamic menus
-      const dynamicMenus = Object.values(this.dynamicMenus ?? {});
-      for (const menu of dynamicMenus) {
+      /*
+       * Projekta labojums: pending izvēlnes jau ir arī dynamicMenus (createDynamicMenu
+       * ieliek abos), tāpēc agrāk tās tika izveidotas divreiz — pogas dublējās.
+       * Tagad: apvieno pēc id un katru izveido vienreiz, iepriekš noņemot vecās pogas.
+       */
+      for (const pending of this.pendingDynamicMenus ?? []) {
 
+        this.dynamicMenus = {...this.dynamicMenus, [pending.id]: pending};
+
+      }
+      this.pendingDynamicMenus = [];
+
+      for (const menu of Object.values(this.dynamicMenus ?? {})) {
+
+        this.removeDynamicMenuButtons(menu);
         this.createMenuElement(
           menu,
           "main",
@@ -840,21 +851,6 @@ function registerDynamicMenus (remote) {
         );
 
       }
-
-      // Drain pending menus received before main menu was ever shown
-      const pendingMenus = this.pendingDynamicMenus ?? [];
-      for (const pending of pendingMenus) {
-
-        this.dynamicMenus = {...this.dynamicMenus, [pending.id]: pending};
-        this.createMenuElement(
-          pending,
-          "main",
-          alertButton,
-          true
-        );
-
-      }
-      this.pendingDynamicMenus = [];
 
     },
 

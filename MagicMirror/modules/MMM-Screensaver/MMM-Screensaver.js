@@ -28,7 +28,9 @@ Module.register("MMM-Screensaver", {
 			"PAGES_NEXT", "PAGES_PREV", "PAGES_HOME", "PAGES_GOTO", "PAGE_CHANGED",
 			"PAGE_INCREMENT", "PAGE_DECREMENT", "NEWSDETAIL_NEXT",
 			"VOICE_ACTIVATED", "VOICE_COMMAND", "VOICE_DEACTIVATED",
-			"REMOTE_ACTION"
+			"REMOTE_ACTION",
+			"CALENDAR_REMINDER", // kalendāra atgādinājums jāredz, pat ja neviens nav pieskāries
+			"SPOTIFY_TOGGLE", "RADIO_TOGGLE" // žesti mūzikai
 		],
 		ignoreNotifications: [],   // nekad neskaita kā mijiedarbību (pat ja augšējā sarakstā)
 		debug: false,

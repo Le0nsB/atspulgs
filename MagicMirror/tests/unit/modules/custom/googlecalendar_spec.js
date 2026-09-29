@@ -104,4 +104,45 @@ describe("MMM-GoogleCalendar", () => {
 			expect(texts).toContain("https://google.com/device");
 		});
 	});
+
+	describe("atgādinājumi", () => {
+		const MIN = 60 * 1000;
+
+		it("atgādina reminderMinutes pirms sākuma, tikai vienreiz", () => {
+			const now = new Date(2026, 9, 5, 9, 50).getTime();
+			mod.events = [{ id: "a", title: "Zobārsts", startDate: now + 10 * MIN, endDate: now + 70 * MIN, fullDayEvent: false }];
+			vi.spyOn(Date, "now").mockReturnValue(now);
+			mod.checkReminders();
+			mod.checkReminders();
+			const alerts = mod.sendNotification.mock.calls.filter(([n]) => n === "SHOW_ALERT");
+			expect(alerts).toHaveLength(1);
+			expect(alerts[0][1].message).toContain("Zobārsts");
+			expect(alerts[0][1].messageType).toBe("text");
+			expect(mod.sendNotification).toHaveBeenCalledWith("CALENDAR_REMINDER", mod.events[0]);
+		});
+
+		it("neatgādina par tālu notikumu vai jau sākušos", () => {
+			const now = Date.now();
+			mod.events = [
+				{ id: "far", title: "Vēlāk", startDate: now + 60 * MIN, endDate: now + 90 * MIN, fullDayEvent: false },
+				{ id: "past", title: "Jau", startDate: now - MIN, endDate: now + 30 * MIN, fullDayEvent: false }
+			];
+			expect(mod.dueReminders(now)).toHaveLength(0);
+		});
+
+		it("visas dienas notikumam atgādina tās dienas rītā", () => {
+			const day = new Date(2026, 9, 10).getTime();
+			mod.events = [{ id: "d", title: "Atvaļinājums", startDate: day, endDate: day + 24 * 60 * MIN, fullDayEvent: true }];
+			expect(mod.dueReminders(new Date(2026, 9, 10, 7, 59).getTime())).toHaveLength(0);
+			expect(mod.dueReminders(new Date(2026, 9, 10, 8, 1).getTime())).toHaveLength(1);
+			expect(mod.dueReminders(new Date(2026, 9, 10, 20, 0).getTime())).toHaveLength(0);
+		});
+
+		it("tukšs reminderMinutes izslēdz atgādinājumus", () => {
+			mod.config.reminderMinutes = [];
+			const now = Date.now();
+			mod.events = [{ id: "a", title: "X", startDate: now + MIN, endDate: now + 2 * MIN, fullDayEvent: false }];
+			expect(mod.dueReminders(now)).toHaveLength(0);
+		});
+	});
 });

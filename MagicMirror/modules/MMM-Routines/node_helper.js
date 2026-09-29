@@ -1,7 +1,7 @@
 /* node_helper priekš MMM-Routines
  *
  * Glabā treniņa stāvokli (izvēlētās ķermeņa daļas, inventārs, šodienas treniņš,
- * līmenis, vēsture) failā data.json un piedāvā:
+ * līmenis, vēsture) SQLite datubāzē data/routines.db (sk. db.js) un piedāvā:
  *   • telefona lapu  http://<pi-ip>:8080/routines  (izvēle, "ģenerēt citu", "pabeigts")
  *   • JSON API tai pašai lapai  /routines/api/*
  *   • lēmumu, kad spogulis jautā "vai treniņš pabeigts?" (klients pasaka, ka seja
@@ -17,9 +17,13 @@ const express = require("express");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { RoutinesStore } = require("./db");
 const { TARGETS, EQUIPMENT, FEEDBACK, MAX_LEVEL, generateWorkout, adjustLevel, videoUrlFor, mediaFor } = require("./exercises");
 
-const DATA_FILE = path.join(__dirname, "data.json");
+// Ārpus modules/ — MagicMirror to mapi atdod pa HTTP, tāpēc no turienes datubāzi varētu lejupielādēt.
+const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
+const DB_FILE = path.join(DATA_DIR, "routines.db");
+const LEGACY_JSON = path.join(__dirname, "data.json");
 const HISTORY_LIMIT = 90;
 
 const todayStr = () => {
@@ -37,31 +41,27 @@ const cleanIds = (list, allowed) => {
 module.exports = NodeHelper.create({
 	start () {
 		this.config = { promptCooldownMs: 60 * 60 * 1000, port: 8080 };
-		this.state = this.load();
+		fs.mkdirSync(DATA_DIR, { recursive: true });
+		this.store = new RoutinesStore(DB_FILE, { historyLimit: HISTORY_LIMIT });
+		try {
+			if (this.store.importJson(LEGACY_JSON, path.join(DATA_DIR, "routines-data.json.migrated"))) Log.info("MMM-Routines: data.json pārnests uz data/routines.db");
+		} catch (error) {
+			Log.warn(`MMM-Routines: neizdevās pārnest data.json (${error.message})`);
+		}
+		this.state = this.store.load();
 		this.registerRoutes();
 		Log.info("MMM-Routines node_helper startēts.");
 	},
 
 	/* ------------------------- glabāšana ------------------------- */
 
-	load () {
-		const fresh = { prefs: { targets: [], equipment: [] }, level: 1, workout: null, lastPromptAt: 0, history: [] };
+	// Atmiņā glabā to pašu stāvokli (this.state) kā kešatmiņu; katra izmaiņa uzreiz
+	// tiek ierakstīta datubāzē ar mērķtiecīgu vaicājumu (nevis viss fails no jauna).
+	persist (what) {
 		try {
-			const saved = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-			return { ...fresh, ...saved, prefs: { ...fresh.prefs, ...saved.prefs } };
+			what();
 		} catch (error) {
-			if (error.code !== "ENOENT") Log.warn(`MMM-Routines: neizdevās ielasīt data.json (${error.message}), sāku no nulles`);
-			return fresh;
-		}
-	},
-
-	save () {
-		try {
-			const tmp = `${DATA_FILE}.tmp`;
-			fs.writeFileSync(tmp, JSON.stringify(this.state, null, 2));
-			fs.renameSync(tmp, DATA_FILE);
-		} catch (error) {
-			Log.error(`MMM-Routines: neizdevās saglabāt data.json: ${error.message}`);
+			Log.error(`MMM-Routines: neizdevās saglabāt datubāzē: ${error.message}`);
 		}
 	},
 
@@ -99,13 +99,10 @@ module.exports = NodeHelper.create({
 	},
 
 	pushHistory (workout, feedback, levelBefore) {
-		this.state.history.push({
-			date: workout.date,
-			targets: workout.targets,
-			level: levelBefore,
-			feedback
-		});
+		const entry = { date: workout.date, targets: workout.targets, level: levelBefore, feedback };
+		this.state.history.push(entry);
 		if (this.state.history.length > HISTORY_LIMIT) this.state.history.splice(0, this.state.history.length - HISTORY_LIMIT);
+		this.persist(() => this.store.addHistory(workout.id, entry));
 	},
 
 	// Jaunā dienā vakardienas treniņš vairs nav aktuāls: ja bija pabeigts bez atbildes,
@@ -115,10 +112,10 @@ module.exports = NodeHelper.create({
 		if (!w || w.date === todayStr()) return;
 		if (w.status === "awaiting_feedback") {
 			w.status = "done";
+			this.persist(() => this.store.updateWorkoutStatus(w));
 			this.pushHistory(w, null, w.level);
 		}
 		if (this.state.prefs.targets.length) this.newWorkout(this.state.prefs, w.exercises.map((e) => e.id));
-		this.save();
 	},
 
 	newWorkout (prefs, avoid = []) {
@@ -142,6 +139,7 @@ module.exports = NodeHelper.create({
 			completedAt: null,
 			feedback: null
 		};
+		this.persist(() => this.store.insertWorkout(this.state.workout));
 	},
 
 	/* ------------------------- darbības ------------------------- */
@@ -152,9 +150,9 @@ module.exports = NodeHelper.create({
 		if (!targets.length) throw new Error("Izvēlies vismaz vienu ķermeņa daļu.");
 
 		this.state.prefs = { targets, equipment };
+		this.persist(() => this.store.savePrefs(this.state.prefs));
 		const avoid = this.state.workout ? this.state.workout.exercises.map((e) => e.id) : [];
 		this.newWorkout(this.state.prefs, avoid);
-		this.save();
 		this.broadcastState();
 	},
 
@@ -164,7 +162,7 @@ module.exports = NodeHelper.create({
 		if (!w || w.status !== "pending") return false;
 		w.status = "awaiting_feedback";
 		w.completedAt = Date.now();
-		this.save();
+		this.persist(() => this.store.updateWorkoutStatus(w));
 		this.broadcastState();
 		this.sendSocketNotification("ROUTINES_ASK", { kind: "feedback" });
 		return true;
@@ -177,8 +175,11 @@ module.exports = NodeHelper.create({
 		this.state.level = adjustLevel(before, value);
 		w.status = "done";
 		w.feedback = value;
+		this.persist(() => {
+			this.store.saveLevel(this.state.level);
+			this.store.updateWorkoutStatus(w);
+		});
 		this.pushHistory(w, value, before);
-		this.save();
 		this.broadcastState();
 		this.sendSocketNotification("ROUTINES_RESULT", { feedback: value, before, after: this.state.level });
 		return true;
@@ -192,7 +193,7 @@ module.exports = NodeHelper.create({
 		const now = Date.now();
 		if (now - this.state.lastPromptAt < this.config.promptCooldownMs) return;
 		this.state.lastPromptAt = now;
-		this.save();
+		this.persist(() => this.store.saveLastPromptAt(now));
 		this.sendSocketNotification("ROUTINES_ASK", { kind: w.status === "pending" ? "complete" : "feedback" });
 	},
 

@@ -94,3 +94,41 @@
 	color: rgba(255, 255, 255, 0.35);
 	text-align: center;
 }
+
+/* QR kods uz telefona lapu /calendar (notikumu pievienošana) */
+.mmm-calendaragenda .ca-phone {
+	display: flex;
+	align-items: center;
+	gap: 18px;
+	margin-top: 26px;
+	padding-top: 18px;
+	border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.mmm-calendaragenda .ca-phone-qr {
+	flex: none;
+	width: 110px;
+	height: 110px;
+}
+
+.mmm-calendaragenda .ca-phone-qr svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+.mmm-calendaragenda .ca-phone-title {
+	font-size: 18px;
+	color: #7cccff;
+}
+
+.mmm-calendaragenda .ca-phone-hint {
+	font-size: 14px;
+	color: rgba(255, 255, 255, 0.5);
+	margin-top: 4px;
+	word-break: break-all;
+}
+
+.mmm-calendaragenda .ca-phone-qr svg {
+	border-radius: 6px;
+}

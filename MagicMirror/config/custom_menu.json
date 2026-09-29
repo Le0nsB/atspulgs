@@ -3,5 +3,21 @@
   "type": "link",
   "icon": "heartbeat",
   "text": "Treniņi",
-  "url": "routines"
+  "url": "routines",
+  "items": [
+    {
+      "id": "calendar-add",
+      "type": "link",
+      "icon": "calendar-plus-o",
+      "text": "Kalendārs",
+      "url": "calendar"
+    },
+    {
+      "id": "todo",
+      "type": "link",
+      "icon": "list-ul",
+      "text": "Saraksti",
+      "url": "todo"
+    }
+  ]
 }

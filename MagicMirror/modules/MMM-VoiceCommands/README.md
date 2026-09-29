@@ -20,16 +20,69 @@ Tāpēc modulis strādā **divos režīmos (lomās)**:
 | ------------ | ------------------------------------------------------------- | --- |
 | **listener** | Klausās mikrofonā, atpazīst runu, sūta komandu serverim       | Ierīce ar Chrome + mikrofonu (piem. MacBook) |
 | **display**  | Neklausās; saņem komandu un izpilda + rāda malu mirdzumu      | Pi TV displejs (Electron) |
+| **server**   | Kā *display*, bet runu atpazīst Pi pats (USB mikrofons + whisper.cpp) | Pi TV displejs (Electron) |
 
 `node_helper` uz Pi darbojas kā **relejs**: komanda, ko dzirdēja *listener*, tiek
 pārraidīta **visiem** pieslēgtajiem klientiem, tāpēc TV displejs pārslēdz lapu.
 
 Loma tiek noteikta **automātiski** (`listen: "auto"` — ja pārlūkam ir Web Speech
 API → *listener*, citādi → *display*). Var piespiest ar `listen: true/false` vai
-ar URL: `?voice=listen`, `?voice=display`, `?voice=off`.
+ar URL: `?voice=listen`, `?voice=display`, `?voice=server`, `?voice=off`.
 
-> **Kad Pi būs savs USB mikrofons** — tad viss var notikt uz Pi bez otras ierīces.
-> Šim `node_helper` jau ir sagatavota vieta lokālai atpazīšanai (whisper.cpp).
+## Uzstādīšana ar USB mikrofonu pie Pi (loma "server")
+
+Viss notiek uz Pi, bez otras ierīces un bez interneta:
+
+```
+USB mikrofons → arecord (16 kHz) → klusuma/runas detektors → WAV → whisper.cpp → teksts
+                                                   → "Spoguli" + komanda (tā pati loģika)
+```
+
+1. Pievieno USB mikrofonu un uz Pi palaid:
+   ```bash
+   bash scripts/whisper/install.sh        # whisper.cpp + modelis small-q5_1 (~190 MB)
+   ```
+   Skripts beigās parāda mikrofonu sarakstu (`arecord -l`) un pārbaudes komandu.
+2. `config/config.js`:
+   ```js
+   listen: "server",
+   server: {
+       device: "default",      // vai "plughw:1,0", ja mikrofons nav noklusējuma
+       whisperBin: "~/whisper.cpp/build/bin/whisper-cli",
+       model: "~/whisper.cpp/models/ggml-small-q5_1.bin",
+       threads: 4
+   }
+   ```
+3. Restartē MagicMirror. Kad mikrofons strādā, statusa punktiņš kļūst zaļš;
+   ja nē, statusā īsi parādās iemesls ("Nav mikrofona", "whisper.cpp nav
+   uzstādīts"), bet sīkāk — MagicMirror žurnālā.
+
+Piezīmes:
+- **Modelis:** `small-q5_1` latviski atpazīst ievērojami labāk par `base`;
+  Pi 5 viens īss teikums aizņem ~2–4 s. `base` ir ~2× ātrāks, bet kļūdās biežāk.
+- whisper saņem **uzvedni** ar mūsu komandu frāzēm ("Spoguli, parādi
+  laikapstākļus. …"), tāpēc sagaidāmos vārdus atpazīst precīzāk.
+- Runas detektors (`server.vad`) pielāgojas fona troksnim pats. Ja komandas
+  netiek uztvertas klusā balsī — samazini `minRms` (noklusējums 300); ja
+  telpas troksnis nepārtraukti "ieslēdz" ierakstu — palielini `startRatio` (3).
+- Ja mikrofonu atvieno, ierakstīšana automātiski atsākas, kad tas atkal pieslēgts.
+- MacBook `?voice=listen` režīms joprojām strādā paralēli.
+
+### Tas pats uz Mac (izstrādei, `npm run start:dev`)
+
+Loma "server" strādā arī uz macOS ar Mac mikrofonu (ieraksta `sox`, ne `arecord`):
+
+```bash
+brew install sox whisper-cpp
+mkdir -p ~/whisper.cpp/models
+curl -L -o ~/whisper.cpp/models/ggml-small-q5_1.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin
+```
+
+`whisper-cli` tiek atrasts pats (`/opt/homebrew/bin`), ja `server.whisperBin` ceļa
+nav. Pirmajā reizē macOS pajautās mikrofona atļauju terminālim, no kura palaists
+MagicMirror (Warp / VS Code). Pati pirmā atpazīšana aizņem ~30 s (Metal GPU
+ielāde), pēc tam ~1 s uz teikumu.
 
 ## Uzstādīšana (MacBook = mikrofons, Pi = displejs)
 
@@ -82,7 +135,9 @@ cilne var būt fonā.
 
 | Opcija                 | Noklusējums                              | Apraksts |
 | ---------------------- | ---------------------------------------- | -------- |
-| `listen`               | `"auto"`                                 | `"auto"` / `true` / `false` — vai šis klients klausās. URL `?voice=` pārspēj |
+| `listen`               | `"auto"`                                 | `"auto"` / `true` / `false` / `"server"` — kur notiek klausīšanās. URL `?voice=` pārspēj |
+| `server`               | *(skat. augstāk)*                        | Lomai "server": `device`, `whisperBin`, `model`, `threads`, `vad` |
+| `captureDelay`         | `1200`                                   | ms klusuma pēc „nopirku …”, pirms teksts skaitās pabeigts (pārlūka režīmā) |
 | `lang`                 | `"lv-LV"`                                | Atpazīšanas valoda |
 | `activation`           | `["spoguli", "spogulīt", "spogulīti"]`   | Aktivācijas vārds(-i). Teksts vai masīvs |
 | `activationTimeout`    | `8000`                                   | Cik ilgi (ms) pēc aktivācijas gaidīt komandu |
@@ -107,6 +162,7 @@ cilne var būt fonā.
 | Saki (pēc „Spoguli”)                          | Darbība                     |
 | -------------------------------------------- | -------------------------- |
 | parādi laikapstākļus / laikapstākļi / laiks | `PAGES_GOTO` 0             |
+| laikapstākļi rīt / kāds laiks būs rīt       | `PAGES_GOTO` 0 + `WEEKWEATHER_SHOW_DAY` 1 |
 | parādi kalendāru / kalendārs                | `PAGES_GOTO` 2             |
 | parādi ziņas / ziņas                        | `PAGES_GOTO` 3             |
 | nākamā ziņa / cita ziņa                     | `NEWSDETAIL_NEXT`         |
@@ -119,10 +175,24 @@ cilne var būt fonā.
 | iepriekšējā dziesma                         | `SPOTIFY_PREV`           |
 | skaļāk                                      | `SPOTIFY_VOLUME_UP`      |
 | klusāk                                      | `SPOTIFY_VOLUME_DOWN`    |
+| parādi mūziku / kas skan                    | `PAGES_GOTO` 4           |
+| ieslēdz radio / izslēdz radio               | `RADIO_PLAY` / `RADIO_STOP` |
+| nākamā stacija / iepriekšējā stacija        | `RADIO_NEXT` / `RADIO_PREV` |
+| ieslēdz staciju *star fm*                   | `RADIO_PLAY_NAMED` { text } |
 | parādi treniņu / rādi treniņu               | `PAGES_GOTO` 5           |
 | treniņš pabeigts / treniņu pabeidzu         | `ROUTINES_COMPLETE`      |
 | vēl ne / treniņš nav pabeigts               | `ROUTINES_DISMISS`       |
 | par vieglu / tieši laikā / par grūtu        | `ROUTINES_FEEDBACK` (`easy` / `ok` / `hard`) |
+| kas plānots / parādi plānus                 | `PAGES_GOTO` 6           |
+| parādi uzdevumus / iepirkumu saraksts       | `PAGES_GOTO` 7           |
+| uzdevums pabeigts / pirkums nopirkts        | `TODO_COMPLETE` (augšējais ieraksts) |
+| nopirku *pienu*                             | `TODO_COMPLETE` { list: "shopping", text } |
+| izdarīju *veļu* / atzīmē *…*                | `TODO_COMPLETE` { list: "tasks", text } |
+| pievieno iepirkumiem *maizi*                | `TODO_ADD` { list: "shopping", text } |
+| pievieno uzdevumu *…*                       | `TODO_ADD` { list: "tasks", text } |
+
+*Slīpraksts* — brīvs teksts: komanda ar `capture: true` nodod pārējo teikumu
+kā `payload.text` (ar garumzīmēm, kā dzirdēts).
 
 (Spotify komandas prasa `MMM-SpotifyNowPlaying` ar Premium kontu un aktīvu
 ierīci — skat. tā moduļa README.md. Treniņu komandas prasa `MMM-Routines`.)
@@ -135,6 +205,11 @@ commands: [
     { phrases: ["parādi laikapstākļus", "laiks"], notification: "PAGES_GOTO", payload: 0, label: "Laikapstākļi" }
 ]
 ```
+
+`also: [{ notification, payload }]` — papildu notifikācijas pēc galvenās
+(piem. pāriet uz laikapstākļu lapu UN izcelt rītdienu). `capture: true` —
+pārējais teikums pēc frāzes aiziet kā `payload.text` (komanda neder, ja pēc
+frāzes nekā nav).
 
 `phrases` — jebkurš sakritums der. Salīdzināšana ir reģistrnejutīga un
 neatkarīga no garumzīmēm/mīkstinājumiem (`ā`≈`a`, `š`≈`s`).

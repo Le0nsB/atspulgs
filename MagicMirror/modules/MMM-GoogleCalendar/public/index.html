@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="lv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Kalendārs</title>
+<style>
+	:root {
+		--bg: #0c0c0e;
+		--card: #17171b;
+		--line: rgba(255, 255, 255, 0.1);
+		--text: #f2f2f4;
+		--dim: #9a9aa3;
+		--accent: #7cccff;
+		--ok: #7aff96;
+		--warn: #ffd479;
+		--bad: #ff6b6b;
+	}
+	* { box-sizing: border-box; }
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--text);
+		font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+	}
+	main { max-width: 560px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+	header { padding: 4px 2px; }
+	h1 { margin: 0; font-size: 24px; }
+	h2 { margin: 0 0 12px; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+	a { color: var(--accent); text-decoration: none; }
+	.back { font-size: 14px; padding: 6px 0; }
+	.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+	.hidden { display: none !important; }
+	.muted { color: var(--dim); font-size: 14px; margin: 0; }
+
+	label { display: block; font-size: 14px; color: var(--dim); margin: 14px 0 6px; }
+	label:first-of-type { margin-top: 0; }
+	input[type="text"], input[type="date"], input[type="time"] {
+		width: 100%; font: inherit; color: var(--text); background: var(--bg);
+		border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-height: 44px;
+	}
+	input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+	.row { display: flex; gap: 10px; }
+	.row > div { flex: 1; min-width: 0; }
+	.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+	.switch { display: flex; align-items: center; gap: 10px; margin: 14px 0 0; color: var(--text); font-size: 16px; cursor: pointer; }
+	.switch input { width: 22px; height: 22px; accent-color: var(--accent); margin: 0; }
+
+	button {
+		font: inherit; color: var(--text); background: transparent; cursor: pointer;
+		border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; min-height: 44px;
+	}
+	button:disabled { opacity: 0.5; cursor: default; }
+	.chip[aria-pressed="true"] { background: rgba(124, 204, 255, 0.16); border-color: var(--accent); color: var(--accent); }
+	.primary { background: var(--accent); border-color: var(--accent); color: #06121a; font-weight: 600; width: 100%; margin-top: 18px; }
+	.message { font-size: 14px; margin: 10px 0 0; min-height: 1.4em; }
+	.message.ok { color: var(--ok); }
+	.message.error { color: var(--bad); }
+
+	.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+	.code { font: 600 30px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 3px; color: var(--accent); margin: 6px 0; user-select: all; }
+	.notice { border-color: rgba(255, 212, 121, 0.4); }
+	.notice p { margin: 0 0 12px; }
+
+	.day { margin-top: 14px; }
+	.day:first-child { margin-top: 0; }
+	.day-head { font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--dim); padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+	.day-head.today { color: var(--accent); }
+	#list ul { list-style: none; margin: 0; padding: 0; }
+	#list li { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+	#list li:first-child { border-top: 0; }
+	.when { width: 92px; flex: none; color: var(--dim); font-size: 14px; }
+	.title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+	.delete { flex: none; padding: 6px 12px; min-height: 36px; font-size: 14px; color: var(--bad); border-color: rgba(255, 107, 107, 0.35); }
+</style>
+</head>
+<body>
+<main>
+	<a class="back" href="/remote.html">← Tālvadība</a>
+	<header><h1>Kalendārs</h1></header>
+
+	<!-- Kalendārs vēl nav pieslēgts: tas pats kods, kas redzams spogulī -->
+	<section class="card hidden" id="pairing">
+		<h2>Pieslēdz Google kalendāru</h2>
+		<ol class="steps">
+			<li>Atver <a id="pairing-url" href="https://www.google.com/device" target="_blank" rel="noopener">google.com/device</a> un pieraksties ar savu Google kontu.</li>
+			<li>Ievadi kodu:
+				<div class="code" id="pairing-code"></div>
+				<button type="button" id="copy-code">Kopēt kodu</button>
+			</li>
+			<li>Nospied "Atļaut". Šī lapa pati atjaunosies.</li>
+		</ol>
+	</section>
+
+	<section class="card hidden" id="status">
+		<p class="muted" id="status-text"></p>
+	</section>
+
+	<!-- Pieslēgts ar veco (tikai lasīšanas) atļauju -->
+	<section class="card notice hidden" id="upgrade">
+		<p>Lai pievienotu notikumus, spogulim vienreiz vajag atļauju rakstīt tavā Google kalendārā.</p>
+		<button type="button" id="reconnect">Atjaunot Google atļauju</button>
+	</section>
+
+	<section class="card hidden" id="add">
+		<h2>Jauns notikums</h2>
+		<form id="form" autocomplete="off">
+			<label for="title">Kas notiek?</label>
+			<input type="text" id="title" maxlength="200" placeholder="Piem. Zobārsts" required>
+
+			<label>Kad?</label>
+			<div class="chips" id="quick-days"></div>
+			<input type="date" id="date" required aria-label="Datums">
+
+			<label class="switch"><input type="checkbox" id="all-day"> Visu dienu</label>
+
+			<div class="row" id="times">
+				<div>
+					<label for="start">Sākums</label>
+					<input type="time" id="start" required>
+				</div>
+				<div>
+					<label for="end">Beigas</label>
+					<input type="time" id="end">
+				</div>
+			</div>
+
+			<button type="submit" class="primary" id="submit">Pievienot kalendāram</button>
+			<p class="message" id="message" role="status"></p>
+		</form>
+	</section>
+
+	<section class="card hidden" id="upcoming">
+		<h2>Tuvākie notikumi</h2>
+		<div id="list"></div>
+		<p class="muted" style="margin-top: 14px">Notikumi no Google kalendāra lietotnes arī parādās šeit un spogulī. No šīs lapas var izdzēst tikai šeit pievienotos.</p>
+	</section>
+</main>
+
+<script>
+	const $ = (id) => document.getElementById(id);
+	const WEEKDAYS = ["svētdiena", "pirmdiena", "otrdiena", "trešdiena", "ceturtdiena", "piektdiena", "sestdiena"];
+	const MONTHS = ["janvārī", "februārī", "martā", "aprīlī", "maijā", "jūnijā", "jūlijā", "augustā", "septembrī", "oktobrī", "novembrī", "decembrī"];
+	let state = null;
+	let pollTimer = null;
+
+	const pad = (n) => String(n).padStart(2, "0");
+	const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+	const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+	const fmtTime = (ms) => new Date(ms).toLocaleTimeString("lv-LV", { hour: "2-digit", minute: "2-digit" });
+
+	async function api (path, body) {
+		const options = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+		const res = await fetch(`/calendar/api/${path}`, options);
+		const data = await res.json().catch(() => ({}));
+		if (!res.ok) throw new Error(data.error || `Kļūda ${res.status}`);
+		return data;
+	}
+
+	function show (id, visible) {
+		$(id).classList.toggle("hidden", !visible);
+	}
+
+	function render () {
+		const s = state;
+		const connected = s.status === "connected";
+		show("pairing", s.status === "pairing" && s.pairing);
+		show("status", s.status === "starting" || s.status === "no_client");
+		show("upgrade", connected && !s.canWrite);
+		show("add", connected && s.canWrite);
+		show("upcoming", connected);
+
+		if (s.status === "no_client") $("status-text").textContent = "Google kalendārs spogulī vēl nav iestatīts (administratoram jāaizpilda secrets.js, skat. MMM-GoogleCalendar README).";
+		if (s.status === "starting") $("status-text").textContent = "Savienojas ar Google…";
+		if (s.pairing) {
+			$("pairing-code").textContent = s.pairing.userCode;
+			$("pairing-url").href = s.pairing.verificationUrl || "https://www.google.com/device";
+		}
+		if (connected) renderList(s.events);
+	}
+
+	function renderList (events) {
+		const list = $("list");
+		list.replaceChildren();
+		if (!events.length) {
+			const p = document.createElement("p");
+			p.className = "muted";
+			p.textContent = "Nekas nav ieplānots.";
+			list.append(p);
+			return;
+		}
+		const today = new Date();
+		const groups = new Map();
+		for (const e of events) {
+			const d = new Date(Math.max(e.startDate, addDays(today, 0).getTime()));
+			const key = isoDate(d);
+			if (!groups.has(key)) groups.set(key, { date: d, events: [] });
+			groups.get(key).events.push(e);
+		}
+		for (const { date, events: dayEvents } of groups.values()) {
+			const offset = Math.round((addDays(date, 0) - addDays(today, 0)) / 86400000);
+			const day = document.createElement("div");
+			day.className = "day";
+			const head = document.createElement("div");
+			head.className = offset === 0 ? "day-head today" : "day-head";
+			const name = `${WEEKDAYS[date.getDay()]}, ${date.getDate()}. ${MONTHS[date.getMonth()]}`;
+			head.textContent = offset === 0 ? `Šodien · ${name}` : offset === 1 ? `Rīt · ${name}` : name;
+			day.append(head);
+			const ul = document.createElement("ul");
+			for (const e of dayEvents) {
+				const li = document.createElement("li");
+				const when = document.createElement("span");
+				when.className = "when";
+				when.textContent = e.fullDayEvent ? "Visu dienu" : e.startDate <= Date.now() ? "Tagad" : fmtTime(e.startDate);
+				const title = document.createElement("span");
+				title.className = "title";
+				title.textContent = e.title || "(bez nosaukuma)";
+				li.append(when, title);
+				if (e.fromMirror) {
+					const del = document.createElement("button");
+					del.type = "button";
+					del.className = "delete";
+					del.textContent = "Dzēst";
+					del.addEventListener("click", () => removeEvent(e, del));
+					li.append(del);
+				}
+				ul.append(li);
+			}
+			day.append(ul);
+			list.append(day);
+		}
+	}
+
+	async function refresh () {
+		clearTimeout(pollTimer);
+		try {
+			state = await api("state");
+			render();
+		} catch (error) {
+			show("status", true);
+			$("status-text").textContent = "Neizdodas sasniegt spoguli. Vai telefons ir tajā pašā WiFi tīklā?";
+		}
+		// Kamēr gaida pieslēgšanos — bieži, lai lapa pārslēdzas uzreiz pēc "Atļaut".
+		const waiting = !state || state.status === "pairing" || state.status === "starting";
+		pollTimer = setTimeout(refresh, waiting ? 3000 : 30000);
+	}
+
+	function message (text, kind) {
+		$("message").textContent = text;
+		$("message").className = `message ${kind || ""}`;
+	}
+
+	/* ---------- forma ---------- */
+
+	function setDate (value) {
+		$("date").value = value;
+		for (const chip of $("quick-days").children) chip.setAttribute("aria-pressed", String(chip.dataset.date === value));
+	}
+
+	function setupForm () {
+		const today = new Date();
+		[["Šodien", 0], ["Rīt", 1], ["Parīt", 2]].forEach(([label, n]) => {
+			const chip = document.createElement("button");
+			chip.type = "button";
+			chip.className = "chip";
+			chip.textContent = label;
+			chip.dataset.date = isoDate(addDays(today, n));
+			chip.addEventListener("click", () => setDate(chip.dataset.date));
+			$("quick-days").append(chip);
+		});
+		$("date").addEventListener("change", () => setDate($("date").value));
+		$("all-day").addEventListener("change", () => {
+			const allDay = $("all-day").checked;
+			show("times", !allDay);
+			$("start").required = !allDay;
+		});
+		resetForm();
+		$("form").addEventListener("submit", addEvent);
+	}
+
+	// Noklusējums: šodien, nākamā pilnā stunda (ja tā vēl ir šodien).
+	function resetForm () {
+		const now = new Date();
+		const hour = now.getHours() + 1;
+		$("title").value = "";
+		setDate(isoDate(hour > 23 ? addDays(now, 1) : now));
+		$("start").value = `${pad(hour > 23 ? 9 : hour)}:00`;
+		$("end").value = "";
+	}
+
+	async function addEvent (event) {
+		event.preventDefault();
+		const button = $("submit");
+		button.disabled = true;
+		message("Pievieno…");
+		try {
+			state = await api("events", {
+				title: $("title").value,
+				date: $("date").value,
+				allDay: $("all-day").checked,
+				start: $("start").value,
+				end: $("end").value,
+				timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+			});
+			message(`Pievienots: ${$("title").value.trim()}. Spogulī tas jau ir redzams.`, "ok");
+			resetForm();
+			render();
+		} catch (error) {
+			message(error.message, "error");
+		} finally {
+			button.disabled = false;
+		}
+	}
+
+	async function removeEvent (e, button) {
+		if (!confirm(`Dzēst "${e.title}"?`)) return;
+		button.disabled = true;
+		try {
+			state = await api("delete", { id: e.id });
+			render();
+		} catch (error) {
+			alert(error.message);
+			button.disabled = false;
+		}
+	}
+
+	$("reconnect").addEventListener("click", async () => {
+		if (!confirm("Spogulis uz brīdi atslēgsies no kalendāra, un tev vajadzēs ievadīt jaunu kodu. Turpināt?")) return;
+		try {
+			state = await api("reconnect", {});
+			render();
+			refresh();
+		} catch (error) {
+			alert(error.message);
+		}
+	});
+
+	$("copy-code").addEventListener("click", async () => {
+		try {
+			await navigator.clipboard.writeText($("pairing-code").textContent);
+			$("copy-code").textContent = "Nokopēts ✓";
+		} catch {
+			// http lapā (ne https) clipboard var nebūt pieejams — kods ir iezīmējams ar pirkstu
+			$("copy-code").textContent = "Iezīmē kodu un kopē";
+		}
+	});
+
+	setupForm();
+	refresh();
+	document.addEventListener("visibilitychange", () => {
+		if (!document.hidden) refresh();
+	});
+</script>
+</body>
+</html>

@@ -126,10 +126,16 @@ let config = {
 			// tālrunī — skat. moduļa README.md). OAuth klients (vienreiz
 			// uzstādīts) glabājas MagicMirror/secrets.js. Rāda tuvākos
 			// notikumus ŠEIT un pārraida tos arī uz MMM-MonthCalendar.
+			// Outlook/Microsoft 365 (vai jebkurš ICS) kalendārs: secrets.js
+			// `calendarFeeds` — notikumi tiek apvienoti ar Google notikumiem.
+			// Atgādinājums 15 min pirms notikuma (un visas dienas notikumiem 08:00).
 			module: "MMM-GoogleCalendar",
 			header: "Mans kalendārs",
 			position: "top_left",
-			config: {}
+			config: {
+				reminderMinutes: [15],
+				allDayReminderTime: "08:00"
+			}
 		},
 		{
 			module: "MMM-Namedays",
@@ -211,24 +217,28 @@ let config = {
 		},
 		{
 			// Balss komandas latviešu valodā ar aktivācijas vārdu "Spoguli".
-			// Pi displejam (Electron) nav Web Speech API, tāpēc tas darbojas
-			// "display" lomā: klausās kāda cita ierīce ar Google Chrome, atverot
-			// http://<pi-ip>:8080/?voice=listen (skat. moduļa README.md).
-			// node_helper uz Pi pārraida atpazīto komandu visiem klientiem.
-			// Noklusējuma komandas: "parādi laikapstākļus" / "parādi kalendāru" /
-			// "parādi ziņas" / "nākamā ziņa" / "uz sākumu" / "nākamā lapa" /
-			// "iepriekšējā lapa" / "parādi uzdevumus" / "uzdevums pabeigts" /
-			// "pirkums nopirkts". Pielāgo caur `commands`.
+			// Pi ekrāns ir lomā "server": USB mikrofons pie Pi, node_helper
+			// ieraksta (arecord) un atpazīst LOKĀLI ar whisper.cpp — uzstādīšana:
+			// `bash scripts/whisper/install.sh` (skat. moduļa README.md).
+			// Joprojām der arī cita ierīce ar Google Chrome kā mikrofons:
+			// http://<pi-ip>:8080/?voice=listen — node_helper pārraida atpazīto
+			// komandu visiem klientiem.
+			// Komandas: laikapstākļi (arī "laikapstākļi rīt"), kalendārs, ziņas,
+			// lapas, Spotify, radio, treniņi, plāni, uzdevumi/iepirkumi ("nopirku
+			// pienu", "pievieno iepirkumiem maizi"). Pielāgo caur `commands`.
 			module: "MMM-VoiceCommands",
 			position: "top_center",
 			config: {
 				// "auto" NEDER: Electron Chromium objekts webkitSpeechRecognition
-				// EKSISTĒ (tāpēc "auto" to nekļūdīgi noteiktu par "listener"),
-				// bet tīkla pieprasījums uz Google runas serveri tur vienmēr krīt
-				// (nav Google API atslēgas) — skat. MMM-VoiceCommands.js:8-10.
-				// Tāpēc šeit piespiedu kārtā "display"; mikrofons jāieslēdz
-				// reālā Chrome cilnē: http://<pi-ip>:8080/?voice=listen
-				listen: false
+				// EKSISTĒ, bet tīkla pieprasījums uz Google runas serveri tur
+				// vienmēr krīt (nav Google API atslēgas) — tāpēc "server".
+				listen: "server",
+				server: {
+					device: "default", // vai "plughw:1,0" — skat. `arecord -l`
+					whisperBin: "~/whisper.cpp/build/bin/whisper-cli",
+					model: "~/whisper.cpp/models/ggml-small-q5_1.bin",
+					threads: 4
+				}
 			}
 		},
 		{
@@ -241,10 +251,10 @@ let config = {
 				// izmantota noklusējuma kamera. Konkrētu id vari norādīt ar `deviceId`.
 				deviceLabel: "C270",
 				showPreview: true, // mazs kameras priekšskatījums (var izslēgt)
-				// 1/2/3 pirksti vairs nepārslēdz uz konkrētu lapu — lapas maina ar swipe.
+				// Lapas maina ar swipe; pirksti vada mūziku.
 				oneFinger: null,
-				twoFingers: null,
-				threeFingers: null,
+				twoFingers: "SPOTIFY_TOGGLE", // 2 pirksti -> Spotify atskaņot/pauze
+				threeFingers: "RADIO_TOGGLE", // 3 pirksti -> radio ieslēgt/izslēgt
 				fist: "NEWSDETAIL_NEXT", // dūre -> nākamā ziņa (detalizēto ziņu lapā)
 				openPalm: "PAGES_HOME", // atvērta plauksta -> sākums
 				// Pāršķiršana ar roku: paceli roku aktīvajā zonā un pāvelc pa kreisi/labi,
@@ -276,6 +286,14 @@ let config = {
 			config: {}
 		},
 		{
+			// Interneta radio (Latvijas stacijas) — "Spoguli, ieslēdz radio" /
+			// "nākamā stacija" / 3 pirksti. Rāda staciju un dziesmu, kad skan;
+			// fiksēts (MMM-Pages `fixed`), tāpēc redzams jebkurā lapā.
+			module: "MMM-Radio",
+			position: "bottom_left",
+			config: {}
+		},
+		{
 			// Ziņas detalizēti — atsevišķa lapa. Viena ziņa vienlaikus,
 			// pilns kopsavilkums; rotē pati, dūre = nākamā ziņa.
 			module: "MMM-NewsDetail",
@@ -303,6 +321,16 @@ let config = {
 			config: {
 				daysAhead: 14
 			}
+		},
+		{
+			// Uzdevumu un iepirkumu saraksts — atsevišķa lapa. Spoguļa paša
+			// saraksts (data/todo.db, bez ārēja servisa): telefonā labo
+			// http://<pi-ip>:8080/todo (QR kods lapā, poga "Saraksti" tālvadībā).
+			// Ar balsi: "nopirku pienu", "izdarīju veļu", "pievieno iepirkumiem
+			// maizi", "uzdevums pabeigts" (augšējais), "parādi uzdevumus".
+			module: "MMM-TodoList",
+			position: "middle_center",
+			config: {}
 		},
 		{
 			// Klātbūtnes noteikšana ar kameru (MediaPipe FaceDetector, NAV identitātes
@@ -346,7 +374,7 @@ let config = {
 			module: "MMM-Pages",
 			config: {
 				home: 1,
-				fixed: ["clock", "alert", "updatenotification", "MMM-GestureNav", "MMM-VoiceCommands", "MMM-FaceRecognition", "MMM-Screensaver", "MMM-WifiSetup"],
+				fixed: ["clock", "alert", "updatenotification", "MMM-GestureNav", "MMM-VoiceCommands", "MMM-FaceRecognition", "MMM-Screensaver", "MMM-WifiSetup", "MMM-Radio"],
 				pages: [
 					["MMM-WeekWeather"],
 					[
@@ -363,7 +391,8 @@ let config = {
 					["MMM-NewsDetail"],
 					["MMM-SpotifyDetail"],
 					["MMM-Routines"],
-					["MMM-CalendarAgenda"]
+					["MMM-CalendarAgenda"],
+					["MMM-TodoList"]
 				]
 			}
 		},

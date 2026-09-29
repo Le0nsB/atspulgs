@@ -7,6 +7,9 @@
  * Pats neko neielādē — klausās `CALENDAR_EVENTS`, ko pārraida
  * MMM-GoogleCalendar (tur ir arī Google pieslēgšanās). Tāpēc nav otras
  * OAuth sesijas un otras API aptaujas.
+ *
+ * Apakšā rāda QR kodu uz telefona lapu /calendar (CALENDAR_PHONE_LINK no
+ * MMM-GoogleCalendar), kur var pievienot notikumus.
  */
 Module.register("MMM-CalendarAgenda", {
 	defaults: {
@@ -14,6 +17,7 @@ Module.register("MMM-CalendarAgenda", {
 		maxEntries: 14, // kopējais rindu skaits, lai saraksts ietilpst ekrānā
 		sources: ["MMM-GoogleCalendar"], // kuru moduļu CALENDAR_EVENTS rādīt
 		header: "Plānotais",
+		showPhoneLink: true, // QR kods + adrese notikumu pievienošanai no telefona
 		weekdayNames: ["svētdiena", "pirmdiena", "otrdiena", "trešdiena", "ceturtdiena", "piektdiena", "sestdiena"],
 		monthNames: [
 			"janvāris", "februāris", "marts", "aprīlis", "maijs", "jūnijs",
@@ -27,12 +31,18 @@ Module.register("MMM-CalendarAgenda", {
 
 	start () {
 		this.events = null; // null = vēl nav saņemti dati
+		this.phoneLink = null; // { url, qrSvg }
 		// Pārzīmē reizi minūtē: "notiek tagad", beigušies notikumi pazūd,
 		// pusnaktī "Rīt" kļūst par "Šodien".
 		setInterval(() => this.updateDom(), 60 * 1000);
 	},
 
 	notificationReceived (notification, payload, sender) {
+		if (notification === "CALENDAR_PHONE_LINK" && payload && payload.url) {
+			this.phoneLink = payload;
+			this.updateDom();
+			return;
+		}
 		if (notification !== "CALENDAR_EVENTS" || !Array.isArray(payload)) return;
 		if (!sender || !this.config.sources.includes(sender.name)) return;
 		this.events = payload;
@@ -87,6 +97,36 @@ Module.register("MMM-CalendarAgenda", {
 	},
 
 	getDom () {
+		const wrapper = this.buildAgenda();
+		if (this.config.showPhoneLink && this.phoneLink) wrapper.appendChild(this.buildPhoneLink());
+		return wrapper;
+	},
+
+	// QR kods (SVG, ko uzģenerē serveris no mūsu pašu adreses) + adrese teksta veidā.
+	buildPhoneLink () {
+		const box = document.createElement("div");
+		box.className = "ca-phone";
+		if (this.phoneLink.qrSvg) {
+			const qr = document.createElement("div");
+			qr.className = "ca-phone-qr";
+			qr.innerHTML = this.phoneLink.qrSvg;
+			box.appendChild(qr);
+		}
+		const text = document.createElement("div");
+		text.className = "ca-phone-text";
+		const title = document.createElement("div");
+		title.className = "ca-phone-title";
+		title.innerText = "Pievieno notikumu no telefona";
+		text.appendChild(title);
+		const hint = document.createElement("div");
+		hint.className = "ca-phone-hint";
+		hint.innerText = this.phoneLink.qrSvg ? `Noskenē kodu vai atver ${this.phoneLink.url}` : `Atver ${this.phoneLink.url}`;
+		text.appendChild(hint);
+		box.appendChild(text);
+		return box;
+	},
+
+	buildAgenda () {
 		const now = new Date();
 		const wrapper = document.createElement("div");
 		wrapper.className = "mmm-calendaragenda";

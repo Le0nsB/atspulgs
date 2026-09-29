@@ -2,6 +2,11 @@
  *
  * Rāda šīs kalendārās nedēļas laika prognozi — no pirmdienas līdz
  * svētdienai. Dati no Open-Meteo (bezmaksas, bez atslēgas).
+ *
+ * WEEKWEATHER_SHOW_DAY <n> (piem. balss komanda "Spoguli, laikapstākļi rīt"):
+ * izceļ dienu n dienas pēc šodienas un rāda tās prognozi pa stundām;
+ * pēc `focusDuration` atgriežas pie šodienas. Svētdienā "rīt" ir nākamās
+ * nedēļas pirmdiena, tāpēc tiek ielādēta arī tā (rāda tikai tad, kad izcelta).
  */
 Module.register("MMM-WeekWeather", {
 	defaults: {
@@ -12,6 +17,9 @@ Module.register("MMM-WeekWeather", {
 		showPrecipitationProbability: true,
 		showHourly: true, // rādīt šodienas prognozi pa stundām zem nedēļas
 		hourlyLabel: "Šodien pa stundām",
+		focusLabels: ["Šodien pa stundām", "Rīt pa stundām", "Parīt pa stundām"],
+		focusDuration: 2 * 60 * 1000, // cik ilgi izceltā diena paliek izcelta
+		focusHourStep: 2, // izceltajai (nākotnes) dienai rāda katru n-to stundu
 		weekdayLabels: ["Pirmd.", "Otrd.", "Trešd.", "Ceturtd.", "Piektd.", "Sestd.", "Svētd."]
 	},
 
@@ -24,7 +32,29 @@ Module.register("MMM-WeekWeather", {
 		this.hourlyData = null;
 		this.loaded = false;
 		this.error = null;
+		this.focusOffset = 0; // 0 = šodiena, 1 = rīt, ...
+		this.focusTimer = null;
 		this.scheduleUpdate(this.config.initialLoadDelay);
+	},
+
+	notificationReceived (notification, payload) {
+		if (notification !== "WEEKWEATHER_SHOW_DAY") return;
+		const offset = Math.max(0, Math.min(6, Math.round(Number(payload) || 0)));
+		this.focusOffset = offset;
+		clearTimeout(this.focusTimer);
+		if (offset > 0) {
+			this.focusTimer = setTimeout(() => {
+				this.focusOffset = 0;
+				this.updateDom(300);
+			}, this.config.focusDuration);
+		}
+		this.updateDom(300);
+	},
+
+	// Izceltās dienas datums (YYYY-MM-DD).
+	focusYmd () {
+		const now = new Date();
+		return this.ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() + this.focusOffset));
 	},
 
 	scheduleUpdate (delay) {
@@ -53,7 +83,8 @@ Module.register("MMM-WeekWeather", {
 
 	async fetchWeather () {
 		const monday = this.getMonday();
-		const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+		// +1 diena: svētdienā "rīt" jau ir nākamā nedēļa.
+		const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 7);
 
 		const params = new URLSearchParams({
 			latitude: this.config.lat,
@@ -144,15 +175,19 @@ Module.register("MMM-WeekWeather", {
 
 		const daily = this.weekData;
 		const todayYmd = this.ymd(new Date());
+		const focusYmd = this.focusYmd();
 
 		const row = document.createElement("div");
 		row.className = "ww-row";
 
 		daily.time.forEach((iso, i) => {
+			// 8. diena (nākamā pirmdiena) ir tikai svētdienas "rīt" vajadzībām.
+			if (i >= 7 && iso !== focusYmd) return;
 			const date = new Date(`${iso}T00:00:00`);
 			const cell = document.createElement("div");
 			cell.className = "ww-day";
 			if (iso === todayYmd) cell.className += " ww-today";
+			if (this.focusOffset > 0 && iso === focusYmd) cell.className += " ww-focus";
 
 			const name = document.createElement("div");
 			name.className = "ww-name";
@@ -192,23 +227,26 @@ Module.register("MMM-WeekWeather", {
 		wrapper.appendChild(row);
 
 		if (this.config.showHourly && this.hourlyData && Array.isArray(this.hourlyData.time)) {
-			const hourly = this.buildHourly(todayYmd);
+			const hourly = this.buildHourly(this.focusOffset > 0 ? focusYmd : todayYmd, this.focusOffset > 0);
 			if (hourly) wrapper.appendChild(hourly);
 		}
 
 		return wrapper;
 	},
 
-	// Šodienas prognoze pa stundām — no pašreizējās stundas līdz 23:00.
+	// Dienas prognoze pa stundām. Šodienai — no pašreizējās stundas līdz 23:00;
+	// nākotnes dienai (izcelta ar balsi) — visa diena ar soli focusHourStep.
 	// Atgriež null, ja rādāmu stundu nav.
-	buildHourly (todayYmd) {
+	buildHourly (todayYmd, future = false) {
 		const h = this.hourlyData;
 		const section = document.createElement("div");
 		section.className = "ww-hourly";
 
 		const title = document.createElement("div");
 		title.className = "ww-hourly-title dimmed";
-		title.textContent = this.config.hourlyLabel;
+		title.textContent = future
+			? (this.config.focusLabels[this.focusOffset] || `${todayYmd} pa stundām`)
+			: this.config.hourlyLabel;
 		section.appendChild(title);
 
 		const hrow = document.createElement("div");
@@ -220,12 +258,17 @@ Module.register("MMM-WeekWeather", {
 
 		h.time.forEach((iso, i) => {
 			if (!iso.startsWith(todayYmd)) return;
-			// Tikai no pašreizējās stundas uz priekšu — pagājušās stundas neinteresē.
-			if (Number(iso.slice(11, 13)) < curHour) return;
+			const hour = Number(iso.slice(11, 13));
+			if (future) {
+				if (hour % this.config.focusHourStep !== 0) return;
+			} else if (hour < curHour) {
+				// Tikai no pašreizējās stundas uz priekšu — pagājušās stundas neinteresē.
+				return;
+			}
 
 			const cell = document.createElement("div");
 			cell.className = "ww-hour";
-			if (iso.slice(0, 13) === nowKey) cell.className += " ww-now";
+			if (!future && iso.slice(0, 13) === nowKey) cell.className += " ww-now";
 
 			const hr = document.createElement("div");
 			hr.className = "ww-hr";

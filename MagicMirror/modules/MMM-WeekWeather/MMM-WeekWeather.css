@@ -153,3 +153,9 @@
 	font-size: 11px;
 	white-space: nowrap;
 }
+
+/* Diena, ko izcēla balss komanda ("Spoguli, laikapstākļi rīt"). */
+.mmm-weekweather .ww-focus {
+	background: rgba(124, 204, 255, 0.14);
+	box-shadow: 0 0 0 1px rgba(124, 204, 255, 0.55), 0 0 14px rgba(124, 204, 255, 0.25);
+}

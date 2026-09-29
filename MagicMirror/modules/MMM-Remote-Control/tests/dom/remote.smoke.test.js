@@ -388,4 +388,40 @@ describe("remote.js DOM smoke tests", () => {
     assert.ok(Array.isArray(Remote.deletedModules));
     assert.equal(Remote.addModule, "");
   });
+
+  test("injectDynamicMenuButtons creates each custom menu button once (pending + registered)", () => {
+    document.body.innerHTML = `<nav class="menu-nav"><div id="power-button" class="button"></div><div id="alert-button" class="button"></div></nav>`;
+
+    const originalCurrentMenu = Remote.currentMenu,
+      originalPendingMenus = Remote.pendingDynamicMenus,
+      originalDynamicMenus = Remote.dynamicMenus;
+
+    const customMenu = {
+      id: "routines",
+      type: "link",
+      text: "Treniņi",
+      url: "routines",
+      items: [{id: "todo", type: "link", text: "Saraksti", url: "todo"}]
+    };
+
+    try {
+      Remote.pendingDynamicMenus = [];
+      Remote.dynamicMenus = {};
+      // Custom menu arrives before the main menu is shown -> pending + dynamicMenus.
+      Remote.currentMenu = "power-menu";
+      Remote.createDynamicMenu(customMenu);
+      Remote.currentMenu = "main-menu";
+
+      Remote.injectDynamicMenuButtons();
+      Remote.injectDynamicMenuButtons(); // a second render must not duplicate either
+
+      assert.equal(document.querySelectorAll("#routines-button").length, 1);
+      assert.equal(document.querySelectorAll("#todo-button").length, 1);
+      assert.equal(Remote.pendingDynamicMenus.length, 0);
+    } finally {
+      Remote.currentMenu = originalCurrentMenu;
+      Remote.pendingDynamicMenus = originalPendingMenus;
+      Remote.dynamicMenus = originalDynamicMenus;
+    }
+  });
 });

@@ -83,4 +83,92 @@ describe("MMM-VoiceCommands matching", () => {
 			expect(mod.matchCommand("")).toBeNull();
 		});
 	});
+
+	describe("capture komandas (brīvs teksts)", () => {
+		it("\"nopirku pienu\" -> TODO_COMPLETE ar tekstu", () => {
+			const found = mod.findCommand(mod.normalize("nopirku pienu"), "nopirku pienu");
+			expect(found.cmd.notification).toBe("TODO_COMPLETE");
+			expect(found.cmd.payload).toEqual({ list: "shopping" });
+			expect(found.rest).toBe("pienu");
+		});
+
+		it("saglabā garumzīmes tekstā", () => {
+			const text = "Spoguli, pievieno iepirkumiem ābolus!";
+			mod.process([text]);
+			expect(mod.sendSocketNotification).toHaveBeenCalledWith("VC_COMMAND", expect.objectContaining({
+				notification: "TODO_ADD",
+				payload: { list: "shopping", text: "ābolus" }
+			}));
+		});
+
+		it("bez teksta pēc frāzes capture komanda neder", () => {
+			expect(mod.findCommand(mod.normalize("nopirku"), "nopirku")).toBeNull();
+		});
+
+		it("garāka precīza frāze pārspēj capture (\"nopirku pirkumu\")", () => {
+			expect(mod.matchCommand(mod.normalize("nopirku pirkumu")).payload).toEqual({ list: "shopping" });
+			expect(mod.matchCommand(mod.normalize("nopirku pirkumu")).capture).toBeUndefined();
+		});
+
+		it("treniņa frāze netiek uztverta kā uzdevums", () => {
+			expect(mod.matchCommand(mod.normalize("izdarīju treniņu")).notification).toBe("ROUTINES_COMPLETE");
+			expect(mod.matchCommand(mod.normalize("pabeidzu treniņu")).notification).toBe("ROUTINES_COMPLETE");
+		});
+
+		it("starprezultātā capture gaida teikuma beigas", () => {
+			vi.useFakeTimers();
+			mod.activate();
+			mod.sendSocketNotification.mockClear();
+			mod.process(["nopirku pi"], { final: false });
+			mod.process(["nopirku pienu"], { final: false });
+			expect(mod.sendSocketNotification).not.toHaveBeenCalledWith("VC_COMMAND", expect.anything());
+			vi.advanceTimersByTime(mod.config.captureDelay + 10);
+			expect(mod.sendSocketNotification).toHaveBeenCalledWith("VC_COMMAND", expect.objectContaining({ payload: { list: "shopping", text: "pienu" } }));
+			vi.useRealTimers();
+		});
+	});
+
+	describe("rītdienas laikapstākļi un also", () => {
+		it("\"laikapstākļi rīt\" pāriet uz lapu un izceļ rītdienu", () => {
+			const cmd = mod.matchCommand(mod.normalize("laikapstākļi rīt"));
+			expect(cmd.notification).toBe("PAGES_GOTO");
+			expect(cmd.also).toEqual([{ notification: "WEEKWEATHER_SHOW_DAY", payload: 1 }]);
+		});
+
+		it("remoteCommand izpilda arī also notifikācijas", () => {
+			mod.remoteCommand({ id: "x1", notification: "PAGES_GOTO", payload: 0, also: [{ notification: "WEEKWEATHER_SHOW_DAY", payload: 1 }] });
+			expect(mod.sendNotification).toHaveBeenCalledWith("PAGES_GOTO", 0);
+			expect(mod.sendNotification).toHaveBeenCalledWith("WEEKWEATHER_SHOW_DAY", 1);
+		});
+	});
+
+	describe("loma server (Pi mikrofons + whisper.cpp)", () => {
+		beforeEach(() => {
+			mod.config.listen = "server";
+			mod.role = mod.resolveRole();
+		});
+
+		it("config listen: \"server\" dod lomu server", () => {
+			expect(mod.role).toBe("server");
+		});
+
+		it("ALL_MODULES_STARTED palūdz node_helper palaist mikrofonu ar uzvedni", () => {
+			mod.notificationReceived("ALL_MODULES_STARTED");
+			const call = mod.sendSocketNotification.mock.calls.find(([n]) => n === "VC_SERVER_START");
+			expect(call[1]).toMatchObject({ language: "lv", model: expect.stringContaining("ggml") });
+			expect(call[1].prompt).toContain("Spoguli, parādi laikapstākļus.");
+			expect(call[1].prompt.length).toBeLessThanOrEqual(600);
+		});
+
+		it("VC_TRANSCRIPT tiek apstrādāts kā dzirdēts teksts", () => {
+			mod.socketNotificationReceived("VC_TRANSCRIPT", { text: "Spoguli, parādi ziņas." });
+			expect(mod.sendSocketNotification).toHaveBeenCalledWith("VC_COMMAND", expect.objectContaining({ notification: "PAGES_GOTO", payload: 3 }));
+		});
+
+		it("display loma VC_TRANSCRIPT ignorē (lai neizpilda divreiz)", () => {
+			mod.role = "display";
+			mod.socketNotificationReceived("VC_TRANSCRIPT", { text: "Spoguli, parādi ziņas." });
+			expect(mod.sendSocketNotification).not.toHaveBeenCalledWith("VC_COMMAND", expect.anything());
+		});
+	});
 });

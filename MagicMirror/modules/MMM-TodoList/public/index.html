@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="lv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Saraksti</title>
+<style>
+	:root {
+		--bg: #0c0c0e;
+		--card: #17171b;
+		--line: rgba(255, 255, 255, 0.1);
+		--text: #f2f2f4;
+		--dim: #9a9aa3;
+		--accent: #7cccff;
+		--ok: #7aff96;
+		--bad: #ff6b6b;
+	}
+	* { box-sizing: border-box; }
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--text);
+		font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+	}
+	main { max-width: 560px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+	header { padding: 4px 2px; }
+	h1 { margin: 0; font-size: 24px; }
+	h2 { margin: 0 0 12px; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+	a { color: var(--accent); text-decoration: none; }
+	.back { font-size: 14px; padding: 6px 0; }
+	.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+	.hidden { display: none !important; }
+	.muted { color: var(--dim); font-size: 14px; margin: 0; }
+
+	button {
+		font: inherit; color: var(--text); background: transparent; cursor: pointer;
+		border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; min-height: 44px;
+	}
+	button:disabled { opacity: 0.5; cursor: default; }
+
+	/* Saraksta izvēle */
+	.tabs { display: flex; gap: 8px; }
+	.tabs button { flex: 1; }
+	.tabs button[aria-selected="true"] { background: rgba(124, 204, 255, 0.16); border-color: var(--accent); color: var(--accent); }
+	.count { color: var(--dim); font-size: 14px; margin-left: 4px; }
+	.tabs button[aria-selected="true"] .count { color: inherit; }
+
+	/* Pievienošana */
+	form { display: flex; gap: 8px; }
+	input[type="text"] {
+		flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--bg);
+		border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-height: 44px;
+	}
+	input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+	.primary { background: var(--accent); border-color: var(--accent); color: #06121a; font-weight: 600; }
+	.message { font-size: 14px; margin: 8px 0 0; min-height: 1.4em; }
+	.message.error { color: var(--bad); }
+
+	/* Ieraksti */
+	ul { list-style: none; margin: 0; padding: 0; }
+	li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+	li:first-child { border-top: 0; }
+	.check {
+		flex: none; width: 28px; height: 28px; min-height: 0; padding: 0; border-radius: 8px;
+		border: 2px solid var(--dim); display: flex; align-items: center; justify-content: center;
+	}
+	.done .check { border-color: var(--ok); background: rgba(122, 255, 150, 0.15); color: var(--ok); }
+	.text { flex: 1; min-width: 0; overflow-wrap: anywhere; padding: 6px 0; cursor: text; }
+	.done .text { color: var(--dim); text-decoration: line-through; }
+	.icon { flex: none; min-height: 36px; min-width: 36px; padding: 4px 8px; font-size: 15px; color: var(--dim); border-color: transparent; }
+	.icon.delete { color: var(--bad); }
+	.icon:disabled { visibility: hidden; }
+	.edit { flex: 1; min-width: 0; }
+
+	.done-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+	.done-head h2 { margin: 0; }
+	.small { min-height: 34px; padding: 4px 12px; font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+	<a class="back" href="/remote.html">← Tālvadība</a>
+	<header><h1>Saraksti</h1></header>
+
+	<div class="tabs" role="tablist">
+		<button type="button" role="tab" data-list="shopping">Iepirkumi<span class="count" id="count-shopping"></span></button>
+		<button type="button" role="tab" data-list="tasks">Uzdevumi<span class="count" id="count-tasks"></span></button>
+	</div>
+
+	<section class="card">
+		<form id="form" autocomplete="off">
+			<input type="text" id="content" maxlength="200" required>
+			<button type="submit" class="primary" id="submit">Pievienot</button>
+		</form>
+		<p class="message" id="message" role="status"></p>
+		<ul id="open"></ul>
+		<p class="muted hidden" id="empty"></p>
+	</section>
+
+	<section class="card hidden" id="done-card">
+		<div class="done-head">
+			<h2>Atzīmētie</h2>
+			<button type="button" class="small" id="clear-done">Notīrīt</button>
+		</div>
+		<ul id="done"></ul>
+		<p class="muted" style="margin-top: 10px">Pieskaries, lai atjaunotu. Pēc nedēļas tie izdzēšas paši.</p>
+	</section>
+
+	<p class="muted" id="offline" hidden>Neizdodas sasniegt spoguli. Vai telefons ir tajā pašā WiFi tīklā?</p>
+</main>
+
+<script>
+	const $ = (id) => document.getElementById(id);
+	const LABELS = {
+		shopping: { placeholder: "Piem. piens", empty: "Iepirkumu saraksts ir tukšs." },
+		tasks: { placeholder: "Piem. izmazgāt veļu", empty: "Nav neviena uzdevuma." }
+	};
+	let state = { tasks: [], shopping: [], done: { tasks: [], shopping: [] } };
+	let current = "shopping";
+	let editing = null; // ieraksta id, ko pašlaik pārsauc
+	let pollTimer = null;
+	try {
+		if (localStorage.getItem("todo-list") === "tasks") current = "tasks";
+	} catch {
+		// privātais režīms — paliek noklusējums
+	}
+
+	async function api (path, body) {
+		const options = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+		const res = await fetch(`/todo/api/${path}`, options);
+		const data = await res.json().catch(() => ({}));
+		if (!res.ok) throw new Error(data.error || `Kļūda ${res.status}`);
+		return data;
+	}
+
+	async function run (path, body) {
+		try {
+			state = await api(path, body);
+			message("");
+			render();
+		} catch (error) {
+			message(error.message, "error");
+		}
+	}
+
+	function message (text, kind) {
+		$("message").textContent = text;
+		$("message").className = `message ${kind || ""}`;
+	}
+
+	function selectList (list) {
+		current = list;
+		editing = null;
+		try {
+			localStorage.setItem("todo-list", list);
+		} catch {
+			// nav svarīgi
+		}
+		render();
+	}
+
+	function iconButton (label, text, onClick, extraClass = "") {
+		const b = document.createElement("button");
+		b.type = "button";
+		b.className = `icon ${extraClass}`;
+		b.setAttribute("aria-label", label);
+		b.textContent = text;
+		b.addEventListener("click", onClick);
+		return b;
+	}
+
+	function renderItem (item, index, total) {
+		const li = document.createElement("li");
+		if (item.done) li.className = "done";
+
+		const check = document.createElement("button");
+		check.type = "button";
+		check.className = "check";
+		check.setAttribute("aria-label", item.done ? "Atjaunot" : "Atzīmēt kā izdarītu");
+		check.textContent = item.done ? "✓" : "";
+		check.addEventListener("click", () => run("done", { id: item.id, done: !item.done }));
+		li.append(check);
+
+		if (editing === item.id) {
+			const form = document.createElement("form");
+			form.className = "edit";
+			const input = document.createElement("input");
+			input.type = "text";
+			input.value = item.content;
+			input.maxLength = 200;
+			form.append(input);
+			form.addEventListener("submit", (e) => {
+				e.preventDefault();
+				editing = null;
+				run("rename", { id: item.id, content: input.value });
+			});
+			input.addEventListener("blur", () => form.requestSubmit());
+			li.append(form);
+			setTimeout(() => input.focus(), 0);
+			return li;
+		}
+
+		const text = document.createElement("span");
+		text.className = "text";
+		text.textContent = item.content;
+		if (!item.done) {
+			text.title = "Pieskaries, lai labotu";
+			text.addEventListener("click", () => {
+				editing = item.id;
+				render();
+			});
+		} else {
+			text.addEventListener("click", () => run("done", { id: item.id, done: false }));
+		}
+		li.append(text);
+
+		if (!item.done) {
+			const up = iconButton("Uz augšu", "↑", () => run("move", { id: item.id, direction: -1 }));
+			up.disabled = index === 0;
+			const down = iconButton("Uz leju", "↓", () => run("move", { id: item.id, direction: 1 }));
+			down.disabled = index === total - 1;
+			li.append(up, down);
+		}
+		li.append(iconButton("Dzēst", "✕", () => run("delete", { id: item.id }), "delete"));
+		return li;
+	}
+
+	function render () {
+		for (const tab of document.querySelectorAll(".tabs button")) {
+			tab.setAttribute("aria-selected", String(tab.dataset.list === current));
+		}
+		$("count-shopping").textContent = state.shopping.length ? ` (${state.shopping.length})` : "";
+		$("count-tasks").textContent = state.tasks.length ? ` (${state.tasks.length})` : "";
+		$("content").placeholder = LABELS[current].placeholder;
+
+		const open = state[current];
+		$("open").replaceChildren(...open.map((item, i) => renderItem(item, i, open.length)));
+		$("empty").textContent = LABELS[current].empty;
+		$("empty").classList.toggle("hidden", open.length > 0);
+
+		const done = state.done[current];
+		$("done").replaceChildren(...done.map((item) => renderItem(item, 0, 0)));
+		$("done-card").classList.toggle("hidden", done.length === 0);
+	}
+
+	async function refresh () {
+		clearTimeout(pollTimer);
+		// Nepārzīmē, kamēr kāds labo ierakstu vai raksta jaunu (neaizmet ievadi).
+		const typing = editing !== null || document.activeElement === $("content");
+		if (!typing) {
+			try {
+				state = await api("state");
+				$("offline").hidden = true;
+				render();
+			} catch {
+				$("offline").hidden = false;
+			}
+		}
+		// Bieži, lai balss komandas ("nopirku pienu") šeit parādās gandrīz uzreiz.
+		pollTimer = setTimeout(refresh, 5000);
+	}
+
+	for (const tab of document.querySelectorAll(".tabs button")) {
+		tab.addEventListener("click", () => selectList(tab.dataset.list));
+	}
+
+	$("form").addEventListener("submit", async (event) => {
+		event.preventDefault();
+		const value = $("content").value;
+		$("submit").disabled = true;
+		try {
+			state = await api("add", { list: current, content: value });
+			$("content").value = "";
+			message("");
+			render();
+		} catch (error) {
+			message(error.message, "error");
+		} finally {
+			$("submit").disabled = false;
+			$("content").focus(); // uzreiz var rakstīt nākamo
+		}
+	});
+
+	$("clear-done").addEventListener("click", () => {
+		if (confirm("Izdzēst visus atzīmētos ierakstus šajā sarakstā?")) run("clear-done", { list: current });
+	});
+
+	render();
+	refresh();
+	document.addEventListener("visibilitychange", () => {
+		if (!document.hidden) refresh();
+	});
+</script>
+</body>
+</html>

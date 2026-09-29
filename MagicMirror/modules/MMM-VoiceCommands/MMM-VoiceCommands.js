@@ -20,6 +20,15 @@
  * Loma tiek noteikta automātiski (config `listen: "auto"`) vai piespiedu kārtā
  * ar config `listen: true/false` vai URL `?voice=listen` / `?voice=display`.
  *
+ * LOMA "server" (config `listen: "server"`, Path B): mikrofons ir pieslēgts
+ * PAŠAM Pi — node_helper ieraksta ar arecord un atpazīst ar whisper.cpp
+ * (lokāli, bez interneta; skat. server-recognizer.js). Atpazītais teksts
+ * atnāk kā VC_TRANSCRIPT un tiek apstrādāts ar to pašu loģiku kā pārlūkā.
+ *
+ * Komandas ar `capture: true` paņem pārējo teikumu kā tekstu
+ * ("nopirku pienu" -> payload.text = "pienu"). `also` — papildu
+ * notifikācijas, ko izpildīt pēc galvenās (piem. lapa + konkrēta diena).
+ *
  * Saderīgs ar MMM-Pages notifikāciju API (PAGES_GOTO / PAGES_HOME / ...).
  */
 Module.register("MMM-VoiceCommands", {
@@ -29,8 +38,20 @@ Module.register("MMM-VoiceCommands", {
 		// "auto"  -> klausās, ja pārlūkam ir Web Speech API, citādi tikai displejs
 		// true    -> vienmēr klausās (šis klients)
 		// false   -> nekad neklausās (tikai displejs)
-		// URL `?voice=listen` / `?voice=display` / `?voice=off` pārspēj šo.
+		// "server" -> mikrofons pie Pi, atpazīšana node_helper'ī (whisper.cpp)
+		// URL `?voice=listen` / `?voice=display` / `?voice=server` / `?voice=off` pārspēj šo.
 		listen: "auto",
+
+		// Tikai lomai "server" (skat. scripts/whisper/install.sh). Ceļi ar "~"
+		// vai relatīvi pret MagicMirror mapi.
+		server: {
+			device: "default", // ALSA ierīce, piem. "plughw:1,0" (arecord -l)
+			whisperBin: "~/whisper.cpp/build/bin/whisper-cli",
+			model: "~/whisper.cpp/models/ggml-small-q5_1.bin",
+			threads: 4,
+			vad: {} // { minRms, startRatio, silenceMs, maxUtteranceMs } — skat. server-recognizer.js
+		},
+		captureDelay: 1200, // ms klusuma pēc "nopirku …", pirms teksts tiek uzskatīts par pabeigtu
 
 		// Aktivācijas vārds(-i). Var būt viens teksts vai masīvs.
 		activation: ["spoguli", "spogulīt", "spogulīti"],
@@ -60,7 +81,8 @@ Module.register("MMM-VoiceCommands", {
 		// Frāze -> notifikācija. `phrases`: masīvs (der jebkurš sakritums).
 		// `payload` nav obligāts. `label`: ko parādīt statusā pēc izpildes.
 		commands: [
-			{ phrases: ["parādi laikapstākļus", "laikapstākļi", "rādi laiku", "laiks"], notification: "PAGES_GOTO", payload: 0, label: "Laikapstākļi" },
+			{ phrases: ["parādi laikapstākļus", "laikapstākļi", "rādi laiku", "laiks"], notification: "PAGES_GOTO", payload: 0, label: "Laikapstākļi", also: [{ notification: "WEEKWEATHER_SHOW_DAY", payload: 0 }] },
+			{ phrases: ["rītdienas laikapstākļi", "laikapstākļi rīt", "parādi rītdienas laiku", "kāds laiks būs rīt", "laiks rīt", "rītdienas laiks"], notification: "PAGES_GOTO", payload: 0, label: "Laikapstākļi rīt", also: [{ notification: "WEEKWEATHER_SHOW_DAY", payload: 1 }] },
 			{ phrases: ["parādi kalendāru", "rādi kalendāru", "kalendārs"], notification: "PAGES_GOTO", payload: 2, label: "Kalendārs" },
 			{ phrases: ["parādi ziņas", "rādi ziņas", "ziņas"], notification: "PAGES_GOTO", payload: 3, label: "Ziņas" },
 			{ phrases: ["nākamā ziņa", "nākošā ziņa", "cita ziņa"], notification: "NEWSDETAIL_NEXT", label: "Nākamā ziņa" },
@@ -75,17 +97,35 @@ Module.register("MMM-VoiceCommands", {
 			{ phrases: ["iepriekšējā dziesma", "iepriekšēja dziesma"], notification: "SPOTIFY_PREV", label: "Iepriekšējā dziesma" },
 			{ phrases: ["skaļāk"], notification: "SPOTIFY_VOLUME_UP", label: "Skaļāk" },
 			{ phrases: ["klusāk"], notification: "SPOTIFY_VOLUME_DOWN", label: "Klusāk" },
+			{ phrases: ["parādi mūziku", "kas skan", "kāda dziesma skan"], notification: "PAGES_GOTO", payload: 4, label: "Mūzika" },
+
+			// --- interneta radio (skat. MMM-Radio) ---
+			{ phrases: ["ieslēdz radio", "atskaņo radio", "palaid radio", "radio"], notification: "RADIO_PLAY", label: "Radio" },
+			{ phrases: ["izslēdz radio", "apturi radio", "radio pietiek"], notification: "RADIO_STOP", label: "Radio izslēgts" },
+			{ phrases: ["nākamā stacija", "cita stacija", "nākamais radio"], notification: "RADIO_NEXT", label: "Nākamā stacija" },
+			{ phrases: ["iepriekšējā stacija", "iepriekšējais radio"], notification: "RADIO_PREV", label: "Iepriekšējā stacija" },
+			{ phrases: ["ieslēdz staciju", "ieslēdz radio staciju"], notification: "RADIO_PLAY_NAMED", capture: true, label: "Radio" },
 
 			// --- treniņi (skat. MMM-Routines; atbild uz spoguļa jautājumu) ---
 			{ phrases: ["parādi treniņu", "rādi treniņu", "treniņa lapa"], notification: "PAGES_GOTO", payload: 5, label: "Treniņš" },
-			{ phrases: ["treniņš pabeigts", "treniņu pabeidzu", "treniņš izdarīts", "izdarīju treniņu"], notification: "ROUTINES_COMPLETE", label: "Treniņš pabeigts" },
+			{ phrases: ["treniņš pabeigts", "treniņu pabeidzu", "pabeidzu treniņu", "treniņš izdarīts", "izdarīju treniņu"], notification: "ROUTINES_COMPLETE", label: "Treniņš pabeigts" },
 			{ phrases: ["vēl ne", "treniņš nav pabeigts", "treniņš vēl nav"], notification: "ROUTINES_DISMISS", label: "Treniņš vēl nav" },
 			{ phrases: ["par vieglu", "pārāk viegls", "bija viegls", "viegls"], notification: "ROUTINES_FEEDBACK", payload: "easy", label: "Treniņš: par vieglu" },
 			{ phrases: ["tieši laikā", "tieši labi", "normāli", "vidēji"], notification: "ROUTINES_FEEDBACK", payload: "ok", label: "Treniņš: tieši laikā" },
 			{ phrases: ["par grūtu", "pārāk grūts", "bija grūts", "grūts"], notification: "ROUTINES_FEEDBACK", payload: "hard", label: "Treniņš: par grūtu" },
 
 			// --- plānotie notikumi (skat. MMM-CalendarAgenda; dati no Google kalendāra) ---
-			{ phrases: ["kas plānots", "kas ieplānots", "parādi plānus", "rādi plānus", "darba kārtība", "plāni"], notification: "PAGES_GOTO", payload: 6, label: "Plānotais" }
+			{ phrases: ["kas plānots", "kas ieplānots", "parādi plānus", "rādi plānus", "darba kārtība", "plāni"], notification: "PAGES_GOTO", payload: 6, label: "Plānotais" },
+
+			// --- uzdevumi/iepirkumi (skat. MMM-TodoList; spoguļa paša saraksts, telefonā /todo) ---
+			{ phrases: ["parādi uzdevumus", "rādi uzdevumus", "uzdevumu saraksts", "uzdevumi", "iepirkumu saraksts", "parādi iepirkumus", "pirkumu saraksts"], notification: "PAGES_GOTO", payload: 7, label: "Uzdevumi" },
+			{ phrases: ["uzdevums pabeigts", "uzdevumu pabeidzu", "pabeidzu uzdevumu", "izdarīju uzdevumu"], notification: "TODO_COMPLETE", payload: { list: "tasks" }, label: "Uzdevums pabeigts" },
+			{ phrases: ["pirkums nopirkts", "nopirku pirkumu", "atzīmē pirkumu", "pirkums pabeigts"], notification: "TODO_COMPLETE", payload: { list: "shopping" }, label: "Pirkums nopirkts" },
+			// Ar nosaukumu: "Spoguli, nopirku pienu" / "Spoguli, izdarīju mājasdarbus".
+			{ phrases: ["nopirku", "esmu nopircis", "esmu nopirkusi"], notification: "TODO_COMPLETE", payload: { list: "shopping" }, capture: true, label: "Nopirkts" },
+			{ phrases: ["izdarīju", "pabeidzu", "atzīmē kā izdarītu", "atzīmē"], notification: "TODO_COMPLETE", payload: { list: "tasks" }, capture: true, label: "Izdarīts" },
+			{ phrases: ["pievieno iepirkumiem", "pievieno iepirkumu sarakstam", "pievieno sarakstam", "pievieno"], notification: "TODO_ADD", payload: { list: "shopping" }, capture: true, label: "Pievienots" },
+			{ phrases: ["pievieno uzdevumu", "pievieno uzdevumiem", "jauns uzdevums"], notification: "TODO_ADD", payload: { list: "tasks" }, capture: true, label: "Uzdevums pievienots" }
 		]
 	},
 
@@ -110,6 +150,8 @@ Module.register("MMM-VoiceCommands", {
 		this.lastTranscript = "";
 		this.lastCmdId = null;
 		this.overlay = null;
+		this.pendingCapture = null; // { cmd, text, rest } — "nopirku …", gaida teikuma beigas
+		this.captureTimer = null;
 
 		// Unikāls šī klienta ID (lai atšķirtu, kurš klients atpazina komandu).
 		this.clientId = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -140,7 +182,7 @@ Module.register("MMM-VoiceCommands", {
 		let forced = null;
 		try {
 			const q = new URLSearchParams(window.location.search).get("voice");
-			if (q && ["listen", "display", "off"].includes(q)) forced = q;
+			if (q && ["listen", "display", "server", "off"].includes(q)) forced = q;
 		} catch (e) {
 			/* nav window.location — ignorējam */
 		}
@@ -149,6 +191,7 @@ Module.register("MMM-VoiceCommands", {
 
 		let role;
 		if (forced === "off") role = "off";
+		else if (forced === "server" || (!forced && this.config.listen === "server")) role = "server";
 		else if (forced === "listen" || this.config.listen === true) role = "listener";
 		else if (forced === "display" || this.config.listen === false) role = "display";
 		else role = hasApi ? "listener" : "display"; // "auto"
@@ -170,6 +213,7 @@ Module.register("MMM-VoiceCommands", {
 				if (this.config.autoStart && this.role === "listener") {
 					setTimeout(() => this.startListening(), this.config.startDelay);
 				}
+				if (this.role === "server") this.startServer();
 				break;
 			case "VOICE_LISTEN_START":
 				this.role = "listener";
@@ -207,9 +251,47 @@ Module.register("MMM-VoiceCommands", {
 			case "VC_COMMAND":
 				this.remoteCommand(payload);
 				break;
+			case "VC_TRANSCRIPT": // Pi mikrofons (whisper.cpp) kaut ko sadzirdēja
+				if (this.role !== "server" || !payload || !payload.text) break;
+				this.lastTranscript = payload.text;
+				this.process([payload.text]);
+				if (this.config.debug) this.updateDom();
+				break;
+			case "VC_SERVER_STATUS":
+				if (this.role !== "server" || !payload) break;
+				this.listening = !!payload.ok;
+				// Kļūda paliek redzama (ne tikai 8 s), citādi nav saprotams, kāpēc spogulis nereaģē.
+				if (payload.ok) this.setStatus("");
+				else this.setStatus(`Balss: ${payload.message}`, 0, "fa-microphone-slash");
+				break;
 			default:
 				break;
 		}
+	},
+
+	// Loma "server": palūdz node_helper palaist Pi mikrofonu + whisper.cpp.
+	// Uzvedne (prompt) ar mūsu frāzēm stipri uzlabo whisper precizitāti
+	// latviešu valodā — tas "zina", kādus vārdus sagaidīt.
+	startServer () {
+		const lang = String(this.config.lang || "lv").split("-")[0];
+		this.sendSocketNotification("VC_SERVER_START", {
+			...this.config.server,
+			language: lang,
+			prompt: this.buildWhisperPrompt()
+		});
+	},
+
+	buildWhisperPrompt () {
+		const activation = Array.isArray(this.config.activation) ? this.config.activation[0] : this.config.activation;
+		const name = activation ? activation[0].toUpperCase() + activation.slice(1) : "";
+		const phrases = (this.config.commands || []).map((c) => (c.phrases || [])[0]).filter(Boolean);
+		let prompt = "";
+		for (const p of phrases) {
+			const next = `${prompt}${name}, ${p}. `;
+			if (next.length > 600) break; // whisper uzvednei ir ~224 tokenu limits
+			prompt = next;
+		}
+		return prompt.trim();
 	},
 
 	// Aktivācijas vārds dzirdēts (jebkurā klientā) — iedegam malas visur.
@@ -248,6 +330,9 @@ Module.register("MMM-VoiceCommands", {
 		this.cooldownUntil = Date.now() + 1500;
 
 		this.sendNotification(p.notification, p.payload);
+		for (const extra of p.also || []) {
+			if (extra && extra.notification) this.sendNotification(extra.notification, extra.payload);
+		}
 		this.sendNotification("VOICE_COMMAND", {
 			notification: p.notification,
 			payload: p.payload,
@@ -387,25 +472,30 @@ Module.register("MMM-VoiceCommands", {
 		if (this.config.debug && this.lastTranscript) {
 			Log.log(`${this.name}: dzirdēts: "${this.lastTranscript}"`);
 		}
-		this.process(candidates);
+		let final = false;
+		for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) final = true;
+		this.process(candidates, { final });
 		if (this.config.debug) this.updateDom();
 	},
 
 	/* ------------------------- komandu apstrāde ------------------------- */
 
-	process (candidates) {
+	// `final: false` — pārlūka starprezultāts (teikums vēl turpinās). Tad
+	// komandas ar `capture` vēl neizpildām, lai "nopirku pi…" nekļūtu par "pi".
+	process (candidates, { final = true } = {}) {
 		const now = Date.now();
 		if (now < this.cooldownUntil) return;
 
 		if (!this.awaitingCommand) {
 			for (const c of candidates) {
-				const words = this.normalize(c).split(" ").filter(Boolean);
-				const m = this.matchActivation(words);
+				const tokens = this.tokenize(c);
+				const m = this.matchActivation(tokens.map((t) => this.normalize(t)));
 				if (!m.matched) continue;
 				this.activate();
 				if (this.config.sameUtteranceCommand && m.rest) {
-					const cmd = this.matchCommand(m.rest);
-					if (cmd) this.runCommand(cmd, m.rest);
+					const restOrig = tokens.slice(m.restIndex).join(" ");
+					const found = this.findCommand(m.rest, restOrig);
+					if (found) this.handleFound(found, m.rest, final);
 				}
 				return;
 			}
@@ -414,12 +504,33 @@ Module.register("MMM-VoiceCommands", {
 
 		for (const c of candidates) {
 			const restNorm = this.normalize(c);
-			const cmd = this.matchCommand(restNorm);
-			if (cmd) {
-				this.runCommand(cmd, restNorm);
+			const found = this.findCommand(restNorm, this.tokenize(c).join(" "));
+			if (found) {
+				this.handleFound(found, restNorm, final);
 				return;
 			}
 		}
+	},
+
+	handleFound (found, text, final) {
+		if (!found.cmd.capture || final) {
+			this.clearPendingCapture();
+			this.runCommand(found.cmd, text, found.rest);
+			return;
+		}
+		// Teikums vēl nav pabeigts — gaidām galīgo rezultātu vai īsu klusumu.
+		this.pendingCapture = { cmd: found.cmd, text, rest: found.rest };
+		clearTimeout(this.captureTimer);
+		this.captureTimer = setTimeout(() => {
+			const p = this.pendingCapture;
+			this.pendingCapture = null;
+			if (p) this.runCommand(p.cmd, p.text, p.rest);
+		}, this.config.captureDelay);
+	},
+
+	clearPendingCapture () {
+		clearTimeout(this.captureTimer);
+		this.pendingCapture = null;
 	},
 
 	// Aktivācijas vārds dzirdēts šajā (listener) klientā. Vietējais stāvoklis
@@ -449,18 +560,26 @@ Module.register("MMM-VoiceCommands", {
 		this.updateDom();
 	},
 
-	runCommand (cmd, matchedText) {
+	runCommand (cmd, matchedText, captured) {
 		clearTimeout(this.commandTimer);
 		this.awaitingCommand = false;
 		this.cooldownUntil = Date.now() + 1500;
 
-		Log.info(`${this.name}: atpazīts "${matchedText}" -> ${cmd.notification} ${cmd.payload ?? ""}`);
+		let payload = cmd.payload;
+		let label = cmd.label || null;
+		if (cmd.capture) {
+			payload = { ...(cmd.payload && typeof cmd.payload === "object" ? cmd.payload : {}), text: captured || "" };
+			if (captured) label = `${label || cmd.notification}: ${captured}`;
+		}
+
+		Log.info(`${this.name}: atpazīts "${matchedText}" -> ${cmd.notification} ${JSON.stringify(payload ?? "")}`);
 		// Izpildi + mirdzumu visos klientos veic relejs (VC_COMMAND atbalss).
 		this.emitNet("COMMAND", {
 			notification: cmd.notification,
-			payload: cmd.payload,
+			payload,
+			also: Array.isArray(cmd.also) ? cmd.also : undefined,
 			text: matchedText,
-			label: cmd.label || null
+			label
 		});
 	},
 
@@ -470,11 +589,11 @@ Module.register("MMM-VoiceCommands", {
 		for (let i = 0; i < words.length; i++) {
 			for (const act of this.activationNorm) {
 				if (this.wordsMatchAt(words, i, act)) {
-					return { matched: true, rest: words.slice(i + act.length).join(" ") };
+					return { matched: true, rest: words.slice(i + act.length).join(" "), restIndex: i + act.length };
 				}
 			}
 		}
-		return { matched: false, rest: "" };
+		return { matched: false, rest: "", restIndex: -1 };
 	},
 
 	wordsMatchAt (words, start, actWords) {
@@ -493,32 +612,67 @@ Module.register("MMM-VoiceCommands", {
 	// "fuzzy", garāka frāze (vairāk vārdu) pārspēj īsāku. Tas neļauj īsam vārdam
 	// ("ziņas") pārķert garāku frāzi ("nākamā ziņa").
 	matchCommand (textNorm) {
+		const found = this.findCommand(textNorm);
+		return found ? found.cmd : null;
+	},
+
+	// Kā matchCommand, bet atgriež arī tekstu PĒC frāzes (komandām ar
+	// `capture`). `original` — tas pats teikums ar garumzīmēm (tokenize),
+	// lai sarakstā būtu "ābolus", nevis "abolus".
+	findCommand (textNorm, original) {
 		if (!textNorm) return null;
 		const words = textNorm.split(" ").filter(Boolean);
+		const origWords = original ? original.split(" ").filter(Boolean) : words;
+		const aligned = origWords.length === words.length;
 		let best = null;
 		let bestScore = -1;
 		for (const cmd of this.commandsNorm) {
 			for (const phrase of cmd.phrasesNorm) {
 				const pWords = phrase.split(" ").filter(Boolean);
 				let matchRank = 0; // 2 = precīzs, 1 = fuzzy
-				if (textNorm.includes(phrase)) matchRank = 2;
-				else if (this.config.fuzzy && this.slidingFuzzyMatch(words, pWords)) matchRank = 1;
+				let at = this.indexOfWords(words, pWords);
+				if (at >= 0 || textNorm.includes(phrase)) matchRank = 2;
+				else if (this.config.fuzzy) {
+					at = this.slidingFuzzyIndex(words, pWords);
+					if (at >= 0) matchRank = 1;
+				}
 				if (!matchRank) continue;
+				let rest = "";
+				if (cmd.capture) {
+					// Vajag tekstu pēc frāzes — bez tā ("nopirku") tā nav šī komanda.
+					if (at < 0) continue;
+					rest = (aligned ? origWords : words).slice(at + pWords.length).join(" ");
+					if (!rest) continue;
+				}
 				const score = matchRank * 1000 + pWords.length * 20 + phrase.length;
 				if (score > bestScore) {
 					bestScore = score;
-					best = cmd;
+					best = { cmd, rest };
 				}
 			}
 		}
 		return best;
 	},
 
+	indexOfWords (words, pWords) {
+		const n = pWords.length;
+		for (let i = 0; n && i + n <= words.length; i++) {
+			let ok = true;
+			for (let j = 0; j < n && ok; j++) ok = words[i + j] === pWords[j];
+			if (ok) return i;
+		}
+		return -1;
+	},
+
 	// Vai kādā `words` logā (frāzes garumā) katrs vārds sakrīt ar frāzes vārdu
 	// ar kopējo Levenšteina attālumu <= fuzzyMaxDistance.
 	slidingFuzzyMatch (words, phraseWords) {
+		return this.slidingFuzzyIndex(words, phraseWords) >= 0;
+	},
+
+	slidingFuzzyIndex (words, phraseWords) {
 		const n = phraseWords.length;
-		if (n === 0 || words.length < n) return false;
+		if (n === 0 || words.length < n) return -1;
 		for (let i = 0; i + n <= words.length; i++) {
 			let dist = 0;
 			let ok = true;
@@ -538,9 +692,20 @@ Module.register("MMM-VoiceCommands", {
 					break;
 				}
 			}
-			if (ok) return true;
+			if (ok) return i;
 		}
-		return false;
+		return -1;
+	},
+
+	// Vārdi ar saglabātām garumzīmēm, bet bez pieturzīmēm — vārdu skaits un
+	// secība sakrīt ar normalize() rezultātu (tas tikai noņem diakritiku).
+	tokenize (str) {
+		return String(str || "")
+			.toLowerCase()
+			.normalize("NFC")
+			.replace(/[^\p{L}\p{M}\p{N}\s]/gu, " ")
+			.split(/\s+/)
+			.filter((w) => w && this.normalize(w));
 	},
 
 	normalize (str) {

@@ -8,21 +8,58 @@
  * Dedublē atkārtotus signālus (vairāki klausītāji / atkārtoti atpazīšanas
  * rezultāti par vienu un to pašu izteikumu).
  *
- * NĀKOTNĒ (Path B — USB mikrofons Pi): šeit varēs pievienot lokālu atpazīšanu
- * (arecord + whisper.cpp) un padot tekstu tai pašai sakritības loģikai.
+ * Path B — USB mikrofons pie Pi: ja kāds klients ir lomā "server" (config
+ * `listen: "server"`), tas atsūta VC_SERVER_START, un šeit tiek palaista lokāla
+ * atpazīšana (arecord + whisper.cpp, skat. server-recognizer.js). Katrs
+ * atpazītais teksts aiziet visiem klientiem kā VC_TRANSCRIPT, un "server"
+ * klients to apstrādā ar to pašu aktivācijas vārda + komandu loģiku.
  */
+const path = require("node:path");
 const NodeHelper = require("node_helper");
 const Log = require("logger");
+const { ServerRecognizer } = require("./server-recognizer");
 
 const RELAYED = ["VC_ACTIVATED", "VC_DEACTIVATED", "VC_COMMAND"];
 
 module.exports = NodeHelper.create({
 	start () {
 		this.recent = new Map(); // dedupe atslēga -> laiks (ms)
+		this.recognizer = null;
+		this.serverStatus = null;
 		Log.info("MMM-VoiceCommands node_helper startēts.");
 	},
 
+	stop () {
+		if (this.recognizer) this.recognizer.stop();
+	},
+
+	// Palaiž mikrofonu vienreiz — nākamie "server" klienti (piem. pārlādēta
+	// lapa) tikai saņem pašreizējo statusu.
+	startServerRecognition (options) {
+		if (this.recognizer) {
+			if (this.serverStatus) this.sendSocketNotification("VC_SERVER_STATUS", this.serverStatus);
+			return;
+		}
+		this.recognizer = new ServerRecognizer(options || {}, {
+			root: path.resolve(__dirname, "..", ".."),
+			log: Log,
+			onTranscript: (text) => this.sendSocketNotification("VC_TRANSCRIPT", { text }),
+			onStatus: (status) => {
+				this.serverStatus = status;
+				this.sendSocketNotification("VC_SERVER_STATUS", status);
+			}
+		});
+		if (!this.recognizer.start()) {
+			// Nav whisper/modeļa — ļaujam mēģināt vēlreiz pēc MM restarta vai lapas pārlādes.
+			this.recognizer = null;
+		}
+	},
+
 	socketNotificationReceived (notification, payload) {
+		if (notification === "VC_SERVER_START") {
+			this.startServerRecognition(payload);
+			return;
+		}
 		if (!RELAYED.includes(notification)) return;
 
 		const now = Date.now();

@@ -97,8 +97,12 @@ MMM-Remote-Control no upstream, šī izmaiņa jāatjauno (un jāpaceļ `CACHE_NA
 
 ## Dati un drošība
 
-- Stāvoklis (izvēles, šodienas treniņš, līmenis, vēsture) tiek glabāts
-  `data.json` moduļa mapē (nav git'ā, katrai ierīcei sava).
+- Stāvoklis (izvēles, treniņi, līmenis, vēsture) tiek glabāts SQLite datubāzē
+  `MagicMirror/data/routines.db` (nav git'ā, katrai ierīcei sava). Ne moduļa
+  mapē, jo MagicMirror visu `modules/` atdod pa HTTP. Izmanto iebūvēto
+  `node:sqlite`, tāpēc nav jāinstalē nekas papildus. Shēma ir `db.js`.
+- Ja moduļa mapē vēl ir vecais `data.json`, pirmajā startā tas tiek pārnests uz
+  datubāzi un pārvietots uz `data/routines-data.json.migrated`.
 - Telefona lapai nav paroles — to aizsargā tikai MagicMirror `ipWhitelist`
   (šeit atļauts tikai lokālais tīkls). Ja tas nepatīk, neatver portu ārpus tīkla.
 - API: `GET /routines/api/state`, `POST /routines/api/generate`
