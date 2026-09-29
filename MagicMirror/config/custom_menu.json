@@ -18,6 +18,13 @@
       "icon": "list-ul",
       "text": "Saraksti",
       "url": "todo"
+    },
+    {
+      "id": "spotify",
+      "type": "link",
+      "icon": "music",
+      "text": "Spotify",
+      "url": "spotify"
     }
   ]
 }

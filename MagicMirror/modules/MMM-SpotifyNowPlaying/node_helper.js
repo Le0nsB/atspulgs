@@ -2,11 +2,33 @@
  *
  * Atjauno access token no refresh token un periodiski vaicā Spotify,
  * kas pašlaik skan. Nekādas ārējās bibliotēkas — izmanto iebūvēto fetch.
+ *
+ * Pieslēgšana: telefona lapa http://<pi-ip>:8080/spotify (skat.
+ * spotify-setup.js) saglabā atslēgas data/spotify.json; šis helperis failu
+ * vēro un pārlādē atslēgas bez MagicMirror restarta.
  */
 const NodeHelper = require("node_helper");
 const Log = require("logger");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
+const express = require("express");
+const { SpotifySetup, loadFromDataFile } = require("./spotify-setup");
+
+const ROOT = path.resolve(__dirname, "..", "..");
+const DATA_FILE = path.join(ROOT, "data", "spotify.json");
+
+// QR kods telefona lapai — bibliotēka jau ir MMM-Remote-Control atkarībās.
+function loadQrCode () {
+	for (const id of ["qrcode", path.join(ROOT, "modules", "MMM-Remote-Control", "node_modules", "qrcode")]) {
+		try {
+			return require(id);
+		} catch {
+			// mēģina nākamo
+		}
+	}
+	return null;
+}
 
 // Spotify akreditācijas dati tiek lasīti TIKAI šeit, servera pusē, no MagicMirror/secrets.js.
 // Tie nedrīkst nonākt modulī `config` (to MagicMirror atdod pārlūkam caur /config un
@@ -14,6 +36,9 @@ const path = require("node:path");
 // kā statiskus failus, t.i. http://<pi-ip>:8080/config/secrets.js būtu lejupielādējams).
 // (Šī funkcija ir apzināti dublēta MMM-SpotifyNowPlaying un MMM-SpotifyDetail — moduļi ir neatkarīgi.)
 function loadSpotifyCredentials () {
+	// Jaunais veids: pieslēgts no telefona (data/spotify.json). Vecais: secrets.js.
+	const fromPhone = loadFromDataFile(DATA_FILE);
+	if (fromPhone) return fromPhone;
 	const root = path.resolve(__dirname, "..", "..");
 	const candidates = [path.join(root, "secrets.js"), path.join(root, "config", "secrets.js")];
 	for (const file of candidates) {
@@ -47,21 +72,20 @@ module.exports = NodeHelper.create({
 		this.failures = 0; // secīgu kļūdu skaits -> eksponenciāla atkāpšanās
 		this.lastIsPlaying = false; // pēdējais zināmais stāvoklis (priekš "toggle")
 		this.lastVolume = 50; // pēdējā zināmā skaļuma vērtība (priekš relatīva +/-)
+		this.clientConfig = null; // pēdējais SPOTIFY_CONFIG no pārlūka (lai var pārlādēt atslēgas)
+		this.setup = new SpotifySetup({ dataFile: DATA_FILE, log: Log });
+		this.registerRoutes();
+		// Pieslēgšana no telefona maina failu -> pārlādējam atslēgas bez restarta.
+		fs.watchFile(DATA_FILE, { interval: 2000 }, () => this.reloadCredentials());
 		this.lastControlKey = null;
 		this.lastControlAt = 0;
 	},
 
 	socketNotificationReceived (notification, payload) {
 		if (notification === "SPOTIFY_CONFIG") {
-			const credentials = loadSpotifyCredentials();
-			if (!credentials) {
-				this.config = null;
-				this.sendSocketNotification("SPOTIFY_NO_CREDENTIALS");
-				return;
-			}
-			this.config = { ...payload, ...credentials };
-			this.failures = 0;
-			this.poll(); // pats ieplāno nākamo vaicājumu
+			this.clientConfig = payload;
+			this.config = null;
+			this.reloadCredentials();
 		} else if (notification === "SPOTIFY_POLL_NOW") {
 			// Frontend ziņo, ka dziesma beigusies — vaicājam uzreiz (ar drošības
 			// slieksni, lai nepārslogotu API).
@@ -75,6 +99,99 @@ module.exports = NodeHelper.create({
 			this.lastControlAt = Date.now();
 			this.control(payload && payload.action, payload && payload.value);
 		}
+	},
+
+	stop () {
+		fs.unwatchFile(DATA_FILE);
+	},
+
+	// Ielādē atslēgas (no data/spotify.json vai secrets.js) un sāk/aptur vaicāšanu.
+	reloadCredentials () {
+		if (!this.clientConfig) return;
+		const credentials = loadSpotifyCredentials();
+		if (!credentials) {
+			clearTimeout(this.timer);
+			this.config = null;
+			this.accessToken = null;
+			this.sendNoCredentials();
+			return;
+		}
+		const same = this.config
+			&& this.config.clientId === credentials.clientId
+			&& this.config.refreshToken === credentials.refreshToken;
+		if (same) return;
+		this.config = { ...this.clientConfig, ...credentials };
+		this.accessToken = null;
+		this.failures = 0;
+		Log.info("[MMM-SpotifyNowPlaying] Spotify atslēgas ielādētas");
+		this.poll(); // pats ieplāno nākamo vaicājumu
+	},
+
+	async sendNoCredentials () {
+		const url = this.phoneUrl();
+		let qrSvg = null;
+		const qr = loadQrCode();
+		if (qr) {
+			try {
+				qrSvg = await qr.toString(url, { type: "svg", margin: 2 });
+			} catch {
+				// bez QR — pietiek ar adresi
+			}
+		}
+		this.sendSocketNotification("SPOTIFY_NO_CREDENTIALS", { url, qrSvg });
+	},
+
+	phoneUrl () {
+		const port = (global.config && global.config.port) || 8080;
+		for (const addrs of Object.values(os.networkInterfaces())) {
+			for (const a of addrs || []) {
+				if (a.family === "IPv4" && !a.internal) return `http://${a.address}:${port}/spotify`;
+			}
+		}
+		return `http://${os.hostname()}.local:${port}/spotify`;
+	},
+
+	/* ------------------------- telefona lapa /spotify ------------------------- */
+
+	registerRoutes () {
+		const app = this.expressApp;
+		if (!app) return;
+		// Tikai application/json (tāpat kā /routines, /calendar, /todo).
+		const parse = express.json({ limit: "10kb" });
+		const json = (req, res, next) => {
+			if (!req.is("application/json")) return res.status(415).json({ error: "Vajag Content-Type: application/json" });
+			parse(req, res, next);
+		};
+		const state = () => this.setup.state(Boolean(loadSpotifyCredentials()));
+		const action = (fn) => async (req, res) => {
+			try {
+				const extra = await fn(req);
+				res.json({ ...state(), ...(extra || {}) });
+			} catch (error) {
+				res.status(400).json({ error: error.message });
+			}
+		};
+
+		app.get("/spotify", (req, res) => {
+			res.set("Cache-Control", "no-cache");
+			res.sendFile(path.join(__dirname, "public", "index.html"));
+		});
+		app.get("/spotify/api/state", (req, res) => res.json(state()));
+		app.post("/spotify/api/app", json, action((req) => this.setup.saveApp(req.body.clientId, req.body.clientSecret)));
+		// Spoguļa adrese, kā to redz telefons — uz turieni starplapa atgriezīs pēc pieteikšanās.
+		app.post("/spotify/api/login", json, action((req) => ({ url: this.setup.loginUrl(`${req.protocol}://${req.get("host")}`) })));
+		app.post("/spotify/api/disconnect", json, action(() => this.setup.disconnect()));
+		app.post("/spotify/api/reset", json, action(() => this.setup.reset()));
+		app.get("/spotify/callback", async (req, res) => {
+			try {
+				await this.setup.callback(req.query || {});
+				this.reloadCredentials();
+				res.redirect("/spotify?connected=1");
+			} catch (error) {
+				Log.warn(`[MMM-SpotifyNowPlaying] pieslēgšana neizdevās: ${error.message}`);
+				res.redirect(`/spotify?error=${encodeURIComponent(error.message)}`);
+			}
+		});
 	},
 
 	// Nākamā vaicājuma intervāls: normāli `updateInterval`, bet pēc secīgām

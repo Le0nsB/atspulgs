@@ -248,3 +248,31 @@
 	font-size: 30px;
 	opacity: 0.7;
 }
+
+/* Spotify nav pieslēgts — QR kods uz telefona lapu /spotify */
+.sd-setup {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	margin-top: 8px;
+}
+
+.sd-setup-qr {
+	width: 150px;
+	height: 150px;
+}
+
+.sd-setup-qr svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+	border-radius: 8px;
+}
+
+.sd-setup-hint {
+	font-size: 14px;
+	color: rgba(255, 255, 255, 0.55);
+	word-break: break-all;
+	max-width: 260px;
+}

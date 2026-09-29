@@ -27,6 +27,7 @@ Module.register("MMM-SpotifyDetail", {
 		this.trackReceivedAt = 0;
 		this.ticker = null;
 		this.hasError = false;
+		this.setupLink = null; // { url, qrSvg } — kur pieslēgt Spotify (no MMM-SpotifyNowPlaying)
 		this.barFill = null;
 		this.timeEl = null;
 		this.lyricsListEl = null;
@@ -37,6 +38,14 @@ Module.register("MMM-SpotifyDetail", {
 
 		// Akreditācijas datus (secrets.js) ielasa tikai node_helper — klientam tie netiek sūtīti.
 		this.sendSocketNotification("SPOTIFY_DETAIL_CONFIG", this.config);
+	},
+
+	notificationReceived (notification, payload) {
+		// No MMM-SpotifyNowPlaying: kur telefonā pieslēgt Spotify (adrese + QR).
+		if (notification === "SPOTIFY_SETUP_LINK" && payload && payload.url) {
+			this.setupLink = payload;
+			if (this.hasError === "config") this.updateDom();
+		}
 	},
 
 	socketNotificationReceived (notification, payload) {
@@ -396,6 +405,25 @@ Module.register("MMM-SpotifyDetail", {
 		return box;
 	},
 
+	// QR kods + adrese uz telefona lapu /spotify, kur pieslēgt savu kontu.
+	buildSetupLink () {
+		const link = document.createElement("div");
+		link.className = "sd-setup";
+		if (this.setupLink.qrSvg) {
+			const qr = document.createElement("div");
+			qr.className = "sd-setup-qr";
+			qr.innerHTML = this.setupLink.qrSvg;
+			link.appendChild(qr);
+		}
+		const hint = document.createElement("div");
+		hint.className = "sd-setup-hint";
+		hint.textContent = this.setupLink.qrSvg
+			? `Noskenē ar telefonu vai atver ${this.setupLink.url}`
+			: `Telefonā atver ${this.setupLink.url}`;
+		link.appendChild(hint);
+		return link;
+	},
+
 	getDom () {
 		const wrapper = document.createElement("div");
 		wrapper.className = "mmm-spotifydetail";
@@ -405,7 +433,9 @@ Module.register("MMM-SpotifyDetail", {
 		this.lyricsListEl = null;
 
 		if (this.hasError === "config") {
-			wrapper.appendChild(this.buildPlaceholder("fa-triangle-exclamation", "Trūkst Spotify atslēgu (MagicMirror/secrets.js)"));
+			const box = this.buildPlaceholder("fa-music", "Spotify nav pieslēgts");
+			if (this.setupLink) box.appendChild(this.buildSetupLink());
+			wrapper.appendChild(box);
 			return wrapper;
 		}
 

@@ -1403,9 +1403,10 @@ pre {
  *   | Power     | Treniņi   |
  *   | Saraksti  | Kalendārs |
  *   | Edit view | Updates   |
- *   | Alert     | Notification |
- *   | Configure | Classes   |
- *   | Links     | View mirror |
+ *   | Spotify   | Alert     |
+ *   | Notification | Configure |
+ *   | Classes   | Links     |
+ *   | View mirror |
  * Citu moduļu pievienotās pogas (ja tādas būs) — beigās.
  */
 .menu-nav:has(> #power-button) {
@@ -1462,12 +1463,13 @@ pre {
   & > #calendar-add-button { order: 4; }
   & > #edit-button { order: 5; }
   & > #update-button { order: 6; }
-  & > #alert-button { order: 7; }
-  & > #notification-button { order: 8; }
-  & > #settings-button { order: 9; }
-  & > #classes-button { order: 10; }
-  & > #links-button { order: 11; }
-  & > #mirror-link-button { order: 12; }
+  & > #spotify-button { order: 7; }
+  & > #alert-button { order: 8; }
+  & > #notification-button { order: 9; }
+  & > #settings-button { order: 10; }
+  & > #classes-button { order: 11; }
+  & > #links-button { order: 12; }
+  & > #mirror-link-button { order: 13; }
 }
 
 /* Lai pēdējā rinda nav pie pašas apakšējās malas / iPhone žestu joslas. */

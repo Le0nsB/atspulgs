@@ -6,55 +6,46 @@ albuma vāciņš un atskaņošanas josla).
 Nav vajadzīgas ārējās npm bibliotēkas — izmanto Node iebūvēto `fetch`.
 Vajag tikai Spotify Web API akreditācijas datus.
 
-## 1. Izveido Spotify lietotni
+## Pieslēgšana (no telefona)
 
-1. Ej uz https://developer.spotify.com/dashboard un izveido jaunu lietotni.
-2. Lietotnes iestatījumos pie **Redirect URIs** pievieno tieši:
-   `http://127.0.0.1:8888/callback`
-3. Pieraksti **Client ID** un **Client Secret**.
+Tālvadībā (`http://<pi-ip>:8080/remote.html`) spied **Spotify** — vai noskenē
+QR kodu spoguļa Spotify lapā, kamēr Spotify vēl nav pieslēgts. Lapa
+`/spotify` ved cauri diviem soļiem:
 
-## 2. Iegūsti refresh token (vienreiz)
+1. **Spotify lietotne (vienreiz).** Lapa parāda, kas jāizdara
+   [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
+   (Create app → Redirect URI ar pogu "Kopēt" → Web API → Settings), un tur
+   ielīmē **Client ID** un **Client Secret**. Spogulis tos uzreiz pārbauda
+   pie Spotify.
+2. **Pieslēgt Spotify** → Spotify pieteikšanās → "Agree" → atpakaļ spogulī.
 
-Moduļa mapē palaid:
+Pēc dažām sekundēm abi Spotify moduļi sāk rādīt, kas skan — bez restarta.
+Kontu var nomainīt vai atslēgt tajā pašā lapā.
 
-```bash
-cd modules/MMM-SpotifyNowPlaying
-SPOTIFY_CLIENT_ID=tavs_id SPOTIFY_CLIENT_SECRET=tavs_secret npm run get-token
-```
+Atslēgas glabājas `MagicMirror/data/spotify.json` (tikai īpašniekam lasāms,
+nav git). Vecais veids — `secrets.js` `spotify: { clientId, clientSecret,
+refreshToken }` un `npm run get-token` — joprojām strādā, bet lapā pieslēgtais
+konts ir noteicošais.
 
-Atvērsies pārlūks, autorizē piekļuvi, un terminālī tiks izdrukāts
-**refresh token**. Tas nemainās — saglabā to.
+### Kāpēc starplapa (GitHub Pages)
 
-## 3. Ieraksti atslēgas MagicMirror/secrets.js
+Kopš 2025. gada Spotify atļauj Redirect URI tikai ar **HTTPS** (vai
+`http://127.0.0.1`), bet spogulis mājas tīklā ir `http://192.168.x.x:8080`.
+Tāpēc Spotify pēc pieteikšanās sūta uz statisku HTTPS lapu
+`https://le0nsb.github.io/atspulgs/spotify-callback.html` (repozitorija
+`docs/spotify-callback.html`), kas uzreiz pāradresē uz spoguli, no kura
+pieslēgšanās sākta. Tā pati neko neglabā, pāradresē tikai uz mājas tīkla
+adresēm, un kodu bez Client Secret (tas ir tikai spogulī) izmantot nevar.
 
-Atslēgas glabājas atsevišķā failā, lai tās nenokļūtu git repozitorijā:
+Vienreiz jāieslēdz GitHub Pages: repozitorijā **Settings → Pages → Build and
+deployment → Deploy from a branch → `main` / `/docs` → Save**.
 
-```bash
-cd ~/MagicMirror        # mape, kurā ir package.json
-cp secrets.js.sample secrets.js
-```
+### Ja Spotify saka, ka nav piekļuves
 
-Aizpildi `secrets.js`:
-
-```js
-module.exports = {
-    spotify: {
-        clientId: "tavs_id",
-        clientSecret: "tavs_secret",
-        refreshToken: "tavs_refresh_token"
-    }
-};
-```
-
-**Svarīgi — fails NEDRĪKST būt mapē `config/`.** MagicMirror atdod `config/` un
-`modules/` pa HTTP kā statiskus failus, t.i. jebkura ierīce tīklā varētu atvērt
-`http://<pi-ip>:8080/config/secrets.js`. Arī moduļa `config` iekšā atslēgas
-nedrīkst likt: MagicMirror visu konfigurāciju atdod pārlūkam (`/config`,
-`/api/config`). Tāpēc atslēgas ielasa tikai moduļa `node_helper` (servera puse)
-no `secrets.js`, kas atrodas projekta saknē. `secrets.js` ir izslēgts no git.
-
-(Vecais ceļš `config/secrets.js` vēl strādā, bet `node_helper` brīdina žurnālā,
-ka fails ir lejupielādējams — pārvieto to.)
+Spotify lietotne "Development mode" režīmā ļauj pieteikties tikai tās
+izveidotājam un kontiem, kas pievienoti **Dashboard → lietotne → User
+Management**. Ja pieslēdz cita cilvēka kontu, pievieno tur viņa Spotify
+e-pastu.
 
 ## Konfigurācijas opcijas
 
@@ -96,19 +87,12 @@ sūta šīs notifikācijas — piem.:
   parāda ekrānā ("Atskaņošanas vadība prasa Spotify Premium.").
 - **Aktīva ierīce** — Spotify jābūt vaļā (vismaz pauzētā stāvoklī) kādā
   ierīcē. Ja nav nevienas, redzēsi "Nav aktīvas Spotify ierīces…".
-- **Papildu tiesību apjoms (scope) tokenam.** Refresh token, ko iegūsti ar
-  `npm run get-token`, ir "ieslēgts" tikai tām tiesībām, kas bija pieprasītas
-  tā ģenerēšanas brīdī. Ja tavs `refreshToken` config'ā tapis PIRMS šīs
-  funkcijas, vadības izsaukumi atgriezīsies ar 401/403 — **ģenerē to no
-  jauna**:
-  ```bash
-  cd modules/MMM-SpotifyNowPlaying
-  SPOTIFY_CLIENT_ID=tavs_id SPOTIFY_CLIENT_SECRET=tavs_secret npm run get-token
-  ```
-  un ieliec jauno `refreshToken` `secrets.js` (projekta saknē).
+- **Tiesību apjoms (scope).** Ja vadība atgriež 401/403 ar vecu
+  `secrets.js` tokenu, vienkārši pieslēdz kontu no jauna lapā `/spotify`.
 
 ## Piezīmes
 
 - Spotify rāda pašlaik atskaņoto tikai tad, kad kāda ierīce aktīvi atskaņo
   (dators, telefons, kolonna u.tml.).
-- `client_secret` glabājas `config.js` — turi to privātu.
+- Client Secret glabājas tikai spoguļa serverī (`data/spotify.json` vai
+  `secrets.js`) — tas netiek sūtīts pārlūkam vai telefona lapai.

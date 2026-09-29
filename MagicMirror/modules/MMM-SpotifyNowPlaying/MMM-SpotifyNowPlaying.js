@@ -49,6 +49,8 @@ Module.register("MMM-SpotifyNowPlaying", {
 	socketNotificationReceived (notification, payload) {
 		if (notification === "SPOTIFY_NO_CREDENTIALS") {
 			this.hasError = "config";
+			// Adrese + QR uz /spotify — MMM-SpotifyDetail to parāda savā lapā.
+			if (payload && payload.url) this.sendNotification("SPOTIFY_SETUP_LINK", payload);
 			this.updateDom();
 			return;
 		}
@@ -156,8 +158,11 @@ Module.register("MMM-SpotifyNowPlaying", {
 		this.timeEl = null;
 
 		if (this.hasError === "config") {
-			wrapper.className += " dimmed light";
-			wrapper.innerHTML = "MMM-SpotifyNowPlaying: trūkst Spotify atslēgu (MagicMirror/secrets.js)";
+			wrapper.className += " dimmed light small";
+			const icon = document.createElement("i");
+			icon.className = "fa-solid fa-music mmm-spotify-control-icon";
+			wrapper.appendChild(icon);
+			wrapper.appendChild(document.createTextNode(" Spotify nav pieslēgts — tālvadībā spied „Spotify”"));
 			return wrapper;
 		}
 

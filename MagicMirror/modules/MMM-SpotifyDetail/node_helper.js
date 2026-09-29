@@ -18,7 +18,22 @@ const path = require("node:path");
 // /api/config) un nedrīkst atrasties mapē config/ vai modules/ (tās MagicMirror atdod pa HTTP
 // kā statiskus failus, t.i. http://<pi-ip>:8080/config/secrets.js būtu lejupielādējams).
 // (Šī funkcija ir apzināti dublēta MMM-SpotifyNowPlaying un MMM-SpotifyDetail — moduļi ir neatkarīgi.)
+// Jaunais veids: pieslēgts no telefona lapas /spotify (MMM-SpotifyNowPlaying) ->
+// data/spotify.json. Ja tā nav, vecais veids — secrets.js.
+const DATA_FILE = path.resolve(__dirname, "..", "..", "data", "spotify.json");
+
+function loadFromDataFile () {
+	try {
+		const { clientId, clientSecret, refreshToken } = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+		return clientId && clientSecret && refreshToken ? { clientId, clientSecret, refreshToken } : null;
+	} catch {
+		return null;
+	}
+}
+
 function loadSpotifyCredentials () {
+	const fromPhone = loadFromDataFile();
+	if (fromPhone) return fromPhone;
 	const root = path.resolve(__dirname, "..", "..");
 	const candidates = [path.join(root, "secrets.js"), path.join(root, "config", "secrets.js")];
 	for (const file of candidates) {
@@ -51,19 +66,40 @@ module.exports = NodeHelper.create({
 		this.timer = null;
 		this.failures = 0;
 		this.lyricsCache = { trackKey: null, lines: null }; // pēdējie ielādētie vārdi
+		this.clientConfig = null;
+		// Pieslēgšana no telefona maina failu -> pārlādējam atslēgas bez restarta.
+		fs.watchFile(DATA_FILE, { interval: 2000 }, () => this.reloadCredentials());
+	},
+
+	stop () {
+		fs.unwatchFile(DATA_FILE);
+	},
+
+	reloadCredentials () {
+		if (!this.clientConfig) return;
+		const credentials = loadSpotifyCredentials();
+		if (!credentials) {
+			clearTimeout(this.timer);
+			this.config = null;
+			this.accessToken = null;
+			this.sendSocketNotification("SPOTIFY_NO_CREDENTIALS");
+			return;
+		}
+		const same = this.config
+			&& this.config.clientId === credentials.clientId
+			&& this.config.refreshToken === credentials.refreshToken;
+		if (same) return;
+		this.config = { ...this.clientConfig, ...credentials };
+		this.accessToken = null;
+		this.failures = 0;
+		this.poll();
 	},
 
 	socketNotificationReceived (notification, payload) {
 		if (notification === "SPOTIFY_DETAIL_CONFIG") {
-			const credentials = loadSpotifyCredentials();
-			if (!credentials) {
-				this.config = null;
-				this.sendSocketNotification("SPOTIFY_NO_CREDENTIALS");
-				return;
-			}
-			this.config = { ...payload, ...credentials };
-			this.failures = 0;
-			this.poll();
+			this.clientConfig = payload;
+			this.config = null;
+			this.reloadCredentials();
 		}
 	},
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = "mmm-remote-control-v4.8.2-basepath-links-grid-dvh-atspulgs"; // projekta izmaiņas remote.css/remote-menu-ui.mjs — jauns nosaukums liek telefoniem ielādēt jaunos failus
+const CACHE_NAME = "mmm-remote-control-v4.8.2-basepath-links-grid-dvh-atspulgs-spotify"; // projekta izmaiņas remote.css/remote-menu-ui.mjs — jauns nosaukums liek telefoniem ielādēt jaunos failus
 const urlsToCache = [
   "./remote.html",
   "./css/main.css",

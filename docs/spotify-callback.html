@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="lv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="referrer" content="no-referrer">
+<title>Atspulgs · Spotify</title>
+<style>
+	body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0c0c0e; color: #f2f2f4; font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+	main { max-width: 420px; padding: 24px; text-align: center; }
+	.error { color: #ff6b6b; }
+	a { color: #7cccff; }
+</style>
+</head>
+<body>
+<main>
+	<p id="text">Atgriežas pie spoguļa…</p>
+</main>
+<script>
+	/*
+	 * Atspulgs (MagicMirror) — Spotify pieslēgšanas starplapa.
+	 *
+	 * Spotify atļauj redirect URI tikai ar HTTPS (vai 127.0.0.1), bet spogulis
+	 * mājas tīklā ir http://192.168.x.x:8080. Šī statiskā lapa (GitHub Pages)
+	 * saņem Spotify atbildi un uzreiz pāradresē to uz spoguli, kura adrese ir
+	 * `state` parametrā. Lapa neko neglabā un nesūta nekur citur; bez Client
+	 * Secret (tas ir tikai spogulī) kods nav izmantojams.
+	 *
+	 * Drošībai pāradresē tikai uz mājas tīkla adresēm (privātie IP, .local,
+	 * 127.0.0.1) — lapu nevar izmantot, lai aizsūtītu kādu uz svešu vietni.
+	 */
+	function isHomeNetwork (url) {
+		if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+		const h = url.hostname;
+		if (h === "localhost" || h.endsWith(".local") || !h.includes(".")) return true;
+		const ip = h.split(".").map(Number);
+		if (ip.length !== 4 || ip.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return false;
+		return ip[0] === 10 || ip[0] === 127
+			|| (ip[0] === 192 && ip[1] === 168)
+			|| (ip[0] === 172 && ip[1] >= 16 && ip[1] <= 31);
+	}
+
+	function fail (text) {
+		const el = document.getElementById("text");
+		el.textContent = text;
+		el.className = "error";
+	}
+
+	const params = new URLSearchParams(location.search);
+	let mirror = null;
+	try {
+		const raw = params.get("state") || "";
+		const json = atob(raw.replace(/-/g, "+").replace(/_/g, "/"));
+		mirror = new URL(JSON.parse(json).m);
+	} catch {
+		mirror = null;
+	}
+
+	if (!mirror) {
+		fail("Šī lapa ir domāta Spotify pieslēgšanai no spoguļa. Atver spoguļa tālvadību → Spotify un mēģini vēlreiz.");
+	} else if (!isHomeNetwork(mirror)) {
+		fail("Nederīga spoguļa adrese.");
+	} else {
+		// Nododam spogulim visu, ko atsūtīja Spotify (code, state vai error).
+		location.replace(`${mirror.origin}/spotify/callback?${params.toString()}`);
+	}
+</script>
+</body>
+</html>
