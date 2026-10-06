@@ -101,3 +101,52 @@ describe("MMM-VoiceCommands server-recognizer", () => {
 		});
 	});
 });
+
+describe("MMM-VoiceCommands node_helper serverOptions", () => {
+	const HELPER_PATH = path.resolve(__dirname, "../../../../modules/MMM-VoiceCommands/node_helper.js");
+	const NodeModule = require("node:module");
+	let helper;
+	let savedConfig;
+
+	beforeEach(() => {
+		delete require.cache[HELPER_PATH];
+		const originalRequire = NodeModule.prototype.require;
+		NodeModule.prototype.require = function (id) {
+			if (id === "node_helper") return { create: (def) => def };
+			if (id === "logger") return { info: vi.fn(), log: vi.fn(), warn: vi.fn(), error: vi.fn() };
+			return originalRequire.apply(this, arguments);
+		};
+		try {
+			helper = require(HELPER_PATH);
+		} finally {
+			NodeModule.prototype.require = originalRequire;
+		}
+		savedConfig = global.config;
+		global.config = {
+			modules: [
+				{ module: "clock" },
+				{ module: "MMM-VoiceCommands", config: { server: { whisperBin: "/opt/whisper-cli", model: "/opt/model.bin", device: "plughw:1,0" } } }
+			]
+		};
+	});
+
+	afterEach(() => {
+		global.config = savedConfig;
+	});
+
+	it("ceļus ņem no config.js, ne no pārlūka ziņas", () => {
+		const options = helper.serverOptions({ whisperBin: "/bin/sh", model: "/etc/passwd", device: "evil", language: "lv", prompt: "Parādi laikapstākļus." });
+		expect(options).toEqual({ whisperBin: "/opt/whisper-cli", model: "/opt/model.bin", device: "plughw:1,0", language: "lv", prompt: "Parādi laikapstākļus." });
+	});
+
+	it("nederīgu valodu un uzvedni ignorē", () => {
+		const options = helper.serverOptions({ language: "-m /bin/sh", prompt: 42 });
+		expect(options.language).toBeUndefined();
+		expect(options.prompt).toBeUndefined();
+	});
+
+	it("bez server sadaļas — recognizer noklusējumi", () => {
+		global.config = { modules: [{ module: "MMM-VoiceCommands" }] };
+		expect(helper.serverOptions({ language: "lv" })).toEqual({ language: "lv" });
+	});
+});

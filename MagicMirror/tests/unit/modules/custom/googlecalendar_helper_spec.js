@@ -182,6 +182,7 @@ describe("MMM-GoogleCalendar node_helper", () => {
 		});
 
 		it("kļūdas gadījumā nosūta GCAL_PAIRING_ERROR", async () => {
+			vi.useFakeTimers();
 			vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 400, text: () => "bad request" }));
 			helper.clientId = "client-id";
 
@@ -189,6 +190,66 @@ describe("MMM-GoogleCalendar node_helper", () => {
 
 			expect(helper.pairing).toBeNull();
 			expect(helper.sendSocketNotification).toHaveBeenCalledWith("GCAL_PAIRING_ERROR", expect.any(String));
+			vi.useRealTimers();
+		});
+
+		it("bez tīkla (piem. Pi starts) mēģina vēlreiz pats, ar pieaugošu pauzi", async () => {
+			vi.useFakeTimers();
+			const ok = {
+				ok: true,
+				json: () => ({ device_code: "dc1", user_code: "ABCD-EFGH", verification_url: "https://google.com/device", expires_in: 1800, interval: 5 })
+			};
+			const fetchMock = vi.fn()
+				.mockRejectedValueOnce(new Error("getaddrinfo ENOTFOUND"))
+				.mockRejectedValueOnce(new Error("getaddrinfo ENOTFOUND"))
+				.mockResolvedValue(ok);
+			vi.stubGlobal("fetch", fetchMock);
+			helper.clientId = "client-id";
+
+			await helper.beginPairing();
+			expect(helper.pairingRetryDelay).toBe(10000);
+			await vi.advanceTimersByTimeAsync(10000);
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+			expect(helper.pairingRetryDelay).toBe(20000);
+			await vi.advanceTimersByTimeAsync(20000);
+
+			expect(fetchMock).toHaveBeenCalledTimes(3);
+			expect(helper.pairing.deviceCode).toBe("dc1");
+			expect(helper.pairingRetryDelay).toBe(0);
+			expect(helper.sendSocketNotification).toHaveBeenCalledWith("GCAL_PAIRING_CODE", expect.objectContaining({ userCode: "ABCD-EFGH" }));
+			vi.useRealTimers();
+		});
+	});
+
+	describe("getAccessToken", () => {
+		beforeEach(() => {
+			helper.clientId = "client-id";
+			helper.clientSecret = "client-secret";
+			helper.refreshToken = "RT";
+			helper.clearToken = vi.fn(() => { helper.refreshToken = null; });
+			helper.beginPairing = vi.fn();
+		});
+
+		it("invalid_grant (atsaukts) -> dzēš tokenu un sāk pieslēgšanu no jauna", async () => {
+			vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 400, text: async () => "{\"error\":\"invalid_grant\"}" }));
+
+			await expect(helper.getAccessToken()).rejects.toThrow("token refresh 400");
+
+			expect(helper.clearToken).toHaveBeenCalled();
+			expect(helper.beginPairing).toHaveBeenCalled();
+		});
+
+		it("citas kļūdas (invalid_client, starpniekserveris) tokenu nedzēš", async () => {
+			vi.stubGlobal("fetch", vi.fn()
+				.mockResolvedValueOnce({ ok: false, status: 401, text: async () => "{\"error\":\"invalid_client\"}" })
+				.mockResolvedValueOnce({ ok: false, status: 400, text: async () => "<html>Bad Request</html>" }));
+
+			await expect(helper.getAccessToken()).rejects.toThrow("token refresh 401");
+			await expect(helper.getAccessToken()).rejects.toThrow("token refresh 400");
+
+			expect(helper.clearToken).not.toHaveBeenCalled();
+			expect(helper.beginPairing).not.toHaveBeenCalled();
+			expect(helper.refreshToken).toBe("RT");
 		});
 	});
 

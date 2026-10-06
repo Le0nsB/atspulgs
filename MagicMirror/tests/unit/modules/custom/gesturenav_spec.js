@@ -128,7 +128,8 @@ describe("MMM-GestureNav gestures", () => {
 			expect(mod.bucketLabel(0)).toBe("dūre");
 			expect(mod.bucketLabel(1)).toBe("1 pirksts");
 			expect(mod.bucketLabel(2)).toBe("2 pirksti");
-			expect(mod.bucketLabel(5)).toBe("✋ plauksta");
+			expect(mod.bucketLabel(5)).toBe("plauksta");
+			expect(mod.bucketLabel(6)).toBe("vidējais pirksts");
 			expect(mod.bucketLabel(-1)).toBe("…");
 		});
 	});

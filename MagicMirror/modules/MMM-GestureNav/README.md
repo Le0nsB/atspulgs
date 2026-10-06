@@ -123,7 +123,7 @@ Jebkuru darbību var pārmērķēt uz citu notifikāciju/payload (piem.
 ## Regulēšana
 
 Priekšskatījuma logā (apakšā pa labi) redzams uzraksts:
-`nav rokas`, `1 pirksts 60%` (žests atpazīts, taimeris pildās), `✋ plauksta`,
+`nav rokas`, `1 pirksts 60%` (žests atpazīts, taimeris pildās), `plauksta`,
 `dūre` (0 pirkstu). Procenti sasniedz 100% → nostrādā.
 
 - **Nereaģē / par grūti noturēt:** samazini `holdMs` (piem. `350`).

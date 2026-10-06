@@ -33,14 +33,29 @@ module.exports = NodeHelper.create({
 		if (this.recognizer) this.recognizer.stop();
 	},
 
+	// Ko palaist (whisperBin, model, device, …) ņemam no config.js servera pusē,
+	// NEVIS no pārlūka ziņas: socket.io var pieslēgties jebkura ierīce tīklā, un
+	// tad tā varētu likt Pi palaist jebkuru programmu. No klienta — tikai teksts.
+	serverOptions (payload) {
+		const modules = (global.config && global.config.modules) || [];
+		const entry = modules.find((m) => m && m.module === "MMM-VoiceCommands");
+		const server = (entry && entry.config && entry.config.server) || {};
+		const options = { ...server };
+		const language = payload && payload.language;
+		if (typeof language === "string" && /^[a-z]{2,3}$/.test(language)) options.language = language;
+		const prompt = payload && payload.prompt;
+		if (typeof prompt === "string") options.prompt = prompt.slice(0, 1000);
+		return options;
+	},
+
 	// Palaiž mikrofonu vienreiz — nākamie "server" klienti (piem. pārlādēta
 	// lapa) tikai saņem pašreizējo statusu.
-	startServerRecognition (options) {
+	startServerRecognition (payload) {
 		if (this.recognizer) {
 			if (this.serverStatus) this.sendSocketNotification("VC_SERVER_STATUS", this.serverStatus);
 			return;
 		}
-		this.recognizer = new ServerRecognizer(options || {}, {
+		this.recognizer = new ServerRecognizer(this.serverOptions(payload), {
 			root: path.resolve(__dirname, "..", ".."),
 			log: Log,
 			onTranscript: (text) => this.sendSocketNotification("VC_TRANSCRIPT", { text }),

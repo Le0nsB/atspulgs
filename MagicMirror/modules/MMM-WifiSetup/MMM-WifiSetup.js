@@ -23,6 +23,8 @@ Module.register("MMM-WifiSetup", {
 	start () {
 		this.state = null;
 		this.ssid = "";
+		this.password = "";
+		this.qrSvg = null;
 		this.portal = "http://10.41.0.1";
 		Log.info(`${this.name}: startē.`);
 	},
@@ -53,13 +55,21 @@ Module.register("MMM-WifiSetup", {
 		status.appendChild(statusText);
 		card.appendChild(status);
 
+		// WiFi QR kods (SVG no node_helper) — telefona kamera piedāvā pieslēgties.
+		const qr = document.createElement("div");
+		qr.className = "ws-qr";
+		card.appendChild(qr);
+
 		const ssidLine = document.createElement("div");
 		ssidLine.className = "ws-ssid";
 		card.appendChild(ssidLine);
 
+		const passwordLine = document.createElement("div");
+		passwordLine.className = "ws-password";
+		card.appendChild(passwordLine);
+
 		const help = document.createElement("div");
 		help.className = "ws-help";
-		help.textContent = "Savieno tālruni vai datoru ar šo WiFi tīklu — parasti tūlīt atveras logs tīkla izvēlei. Ja neatveras pats, atver pārlūkā:";
 		card.appendChild(help);
 
 		const portalLine = document.createElement("div");
@@ -69,9 +79,13 @@ Module.register("MMM-WifiSetup", {
 		wrapper.appendChild(card);
 
 		this.wrapper = wrapper;
+		this.iconEl = icon;
 		this.dotEl = dot;
 		this.statusTextEl = statusText;
+		this.qrEl = qr;
 		this.ssidEl = ssidLine;
+		this.passwordEl = passwordLine;
+		this.helpEl = help;
 		this.portalEl = portalLine;
 
 		this.render();
@@ -87,6 +101,18 @@ Module.register("MMM-WifiSetup", {
 		this.dotEl.className = `ws-dot ${this.state === "HOTSPOT" ? "ws-dot-hotspot" : "ws-dot-connecting"}`;
 		this.statusTextEl.textContent = this.state === "HOTSPOT" ? "Gaida savienojumu" : "Savienojas ar tīklu...";
 		this.ssidEl.textContent = this.ssid ? `Tīkla nosaukums: ${this.ssid}` : "Meklē tīkla nosaukumu...";
+
+		// Parole un QR kods tikai HOTSPOT režīmā (CONNECTING laikā hotspot jau ir izslēgts).
+		const hotspot = this.state === "HOTSPOT";
+		const qrSvg = hotspot ? this.qrSvg : null;
+		this.qrEl.innerHTML = qrSvg || "";
+		this.qrEl.style.display = qrSvg ? "" : "none";
+		this.iconEl.style.display = qrSvg ? "none" : ""; // QR kods jau ir galvenais attēls
+		this.passwordEl.textContent = hotspot && this.password ? `Parole: ${this.password}` : "";
+		this.passwordEl.style.display = this.passwordEl.textContent ? "" : "none";
+		this.helpEl.textContent = qrSvg
+			? "Noskenē kodu ar tālruņa kameru (vai ievadi paroli) — parasti tūlīt atveras logs tīkla izvēlei. Ja neatveras pats, atver pārlūkā:"
+			: "Savieno tālruni vai datoru ar šo WiFi tīklu — parasti tūlīt atveras logs tīkla izvēlei. Ja neatveras pats, atver pārlūkā:";
 		this.portalEl.textContent = this.portal;
 	},
 
@@ -95,6 +121,8 @@ Module.register("MMM-WifiSetup", {
 		if (this.config.debug) Log.log(`${this.name}: stāvoklis ${JSON.stringify(payload)}`);
 		this.state = payload.state;
 		this.ssid = payload.ssid || "";
+		this.password = payload.password || "";
+		this.qrSvg = payload.qrSvg || null;
 		this.portal = payload.portal || this.portal;
 		this.render();
 	}

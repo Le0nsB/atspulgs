@@ -147,6 +147,8 @@ module.exports = NodeHelper.create({
 		this.timer = null;
 		this.failures = 0;
 		this.pairing = null; // { deviceCode, interval, expiresAt, timer }
+		this.pairingRetryTimer = null; // beginPairing atkārtojums pēc tīkla kļūdas
+		this.pairingRetryDelay = 0;
 		this.lastSent = null; // pēdējie nosūtītie notikumi (JSON), lai nesūtītu tos pašus atkārtoti
 		this.grantedScopes = [];
 		this.events = []; // Google + ICS kopā (tas, ko redz spogulis)
@@ -257,6 +259,7 @@ module.exports = NodeHelper.create({
 	/* ------------------------ device authorization plūsma ------------------------ */
 
 	async beginPairing () {
+		clearTimeout(this.pairingRetryTimer);
 		try {
 			const body = new URLSearchParams({ client_id: this.clientId, scope: SCOPE });
 			const res = await fetch(DEVICE_CODE_URL, {
@@ -281,11 +284,18 @@ module.exports = NodeHelper.create({
 			};
 			this.sendSocketNotification("GCAL_PAIRING_CODE", this.pairingInfo);
 			Log.info(`[MMM-GoogleCalendar] gaida pieslēgšanos: ${data.verification_url || data.verification_uri} kods ${data.user_code}`);
+			this.pairingRetryDelay = 0;
 			this.schedulePairingPoll();
 		} catch (err) {
 			this.pairing = null;
-			Log.error(`[MMM-GoogleCalendar] neizdevās sākt Google pieslēgšanu: ${err.message}`);
+			// Pie Pi starta WiFi bieži vēl nav gatavs — mēģinām vēlreiz paši
+			// (10 s, 20 s, … līdz 5 min), lai kods parādās bez lapas pārlādes.
+			this.pairingRetryDelay = Math.min((this.pairingRetryDelay || 5000) * 2, 5 * 60 * 1000);
+			Log.error(`[MMM-GoogleCalendar] neizdevās sākt Google pieslēgšanu: ${err.message} (atkārtos pēc ${this.pairingRetryDelay / 1000} s)`);
 			this.sendSocketNotification("GCAL_PAIRING_ERROR", err.message);
+			this.pairingRetryTimer = setTimeout(() => {
+				if (!this.refreshToken && !this.pairing) this.beginPairing();
+			}, this.pairingRetryDelay);
 		}
 	},
 
@@ -384,10 +394,18 @@ module.exports = NodeHelper.create({
 		});
 		if (!res.ok) {
 			const text = await res.text();
-			if (res.status === 400 || res.status === 401) {
+			let error = null;
+			try {
+				error = JSON.parse(text).error;
+			} catch (err) {
+				// ne JSON (piem. starpniekservera kļūdas lapa)
+			}
+			if (error === "invalid_grant") {
 				// Refresh token atsaukts/nederīgs (piem. lietotājs to atsauca Google
 				// kontā) — dzēšam un sākam pieslēgšanu no jauna, lai spogulis pats
-				// atgūstas bez administratora iejaukšanās.
+				// atgūstas bez administratora iejaukšanās. Citas kļūdas (piem.
+				// invalid_client — nepareizs secrets.js) tokenu NEdzēš: pēc
+				// labojuma spogulis turpina strādāt bez jaunas pieslēgšanās.
 				this.clearToken();
 				this.beginPairing();
 			}
