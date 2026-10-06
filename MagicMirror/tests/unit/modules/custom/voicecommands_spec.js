@@ -48,13 +48,51 @@ describe("MMM-VoiceCommands matching", () => {
 			expect(r.rest).toBe("paradi zinas");
 		});
 
-		it("pieļauj vienas burta kļūdu (fuzzy)", () => {
+		it("pieļauj vienas burta kļūdu (fuzzy), bet atzīmē to", () => {
 			const r = mod.matchActivation(["spoguuli"]);
 			expect(r.matched).toBe(true);
+			expect(r.exact).toBe(false);
+			expect(mod.matchActivation(["spoguli"]).exact).toBe(true);
+		});
+
+		it("aktivācijas vārds jāsaka teikuma sākumā", () => {
+			expect(mod.matchActivation(["hei", "spoguli"]).matched).toBe(true);
+			expect(mod.matchActivation(["paskaties", "uz", "spoguli"]).matched).toBe(false);
 		});
 
 		it("neatpazīst nesaistītu tekstu", () => {
 			expect(mod.matchActivation(["labdien", "cik", "pulkstenis"]).matched).toBe(false);
+		});
+	});
+
+	describe("nejauša aktivācija (troksnis, saruna)", () => {
+		it("\"paskaties uz spoguli\" sarunā neaktivizē", () => {
+			mod.process(["Paskaties uz spoguli, tur kaut kas ir"]);
+			expect(mod.awaitingCommand).toBe(false);
+		});
+
+		it("\"spogulis\" (fuzzy) bez komandas neaktivizē", () => {
+			mod.process(["Spogulis ir diezgan liels"]);
+			expect(mod.awaitingCommand).toBe(false);
+		});
+
+		it("\"spogulis\" (fuzzy) ar komandu tomēr izpildās", () => {
+			mod.process(["Spogulis, parādi ziņas"]);
+			expect(mod.sendSocketNotification).toHaveBeenCalledWith("VC_COMMAND", expect.objectContaining({ notification: "PAGES_GOTO", payload: 3 }));
+		});
+
+		it("\"Spoguli, spoguli, saki man tā\" -> vizuļi (arī ar \"spogulīt\")", () => {
+			mod.process(["Spoguli, spoguli, saki man tā."]);
+			expect(mod.sendSocketNotification).toHaveBeenCalledWith("VC_COMMAND", expect.objectContaining({ notification: "EASTEREGG_GLITTER" }));
+			mod.sendSocketNotification.mockClear();
+			mod.cooldownUntil = 0;
+			mod.process(["Spogulīt, spogulīt, saki man tā!"]);
+			expect(mod.sendSocketNotification).toHaveBeenCalledWith("VC_COMMAND", expect.objectContaining({ notification: "EASTEREGG_GLITTER" }));
+		});
+
+		it("precīzs \"Spoguli\" viens pats aktivizē", () => {
+			mod.process(["Spoguli."]);
+			expect(mod.awaitingCommand).toBe(true);
 		});
 	});
 
@@ -156,7 +194,9 @@ describe("MMM-VoiceCommands matching", () => {
 			mod.notificationReceived("ALL_MODULES_STARTED");
 			const call = mod.sendSocketNotification.mock.calls.find(([n]) => n === "VC_SERVER_START");
 			expect(call[1]).toMatchObject({ language: "lv", model: expect.stringContaining("ggml") });
-			expect(call[1].prompt).toContain("Spoguli, parādi laikapstākļus.");
+			expect(call[1].prompt).toContain("Parādi laikapstākļus, ");
+			// Aktivācijas vārds uzvednē liek whisper to "izdomāt" uz trokšņa.
+			expect(call[1].prompt.toLowerCase()).not.toContain("spoguli");
 			expect(call[1].prompt.length).toBeLessThanOrEqual(600);
 		});
 

@@ -25,6 +25,13 @@
       "icon": "music",
       "text": "Spotify",
       "url": "spotify"
+    },
+    {
+      "id": "signout",
+      "type": "link",
+      "icon": "sign-out",
+      "text": "Izrakstīties",
+      "url": "signout"
     }
   ]
 }

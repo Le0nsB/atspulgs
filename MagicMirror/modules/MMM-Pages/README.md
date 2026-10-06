@@ -33,7 +33,8 @@ Pēc pārslēgšanās modulis raida `PAGE_CHANGED` ar jauno lapas indeksu.
 | `home` | `0` | Sākuma lapas indekss (uz to ved `PAGES_HOME`) |
 | `useArrowKeys` | `true` | Klausīties kreiso/labo bulttaustiņu |
 | `wrap` | `true` | No pēdējās lapas ar „uz priekšu" atgriezties pirmajā |
-| `animationTime` | `400` | Pārejas ilgums (ms) |
+| `animationTime` | `500` | Visas pārejas ilgums (ms): pusi aiziet vecā lapa, pusi ienāk jaunā |
+| `slideDistance` | `40` | Cik pikseļus moduļi pārejā aizslīd no sāniem |
 
 ## Piemērs
 

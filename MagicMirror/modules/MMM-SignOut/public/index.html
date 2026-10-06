@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="lv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Izrakstīties</title>
+<style>
+	:root {
+		--bg: #0c0c0e;
+		--card: #17171b;
+		--line: rgba(255, 255, 255, 0.1);
+		--text: #f2f2f4;
+		--dim: #9a9aa3;
+		--link: #7cccff;
+		--ok: #7aff96;
+		--bad: #ff6b6b;
+	}
+	* { box-sizing: border-box; }
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--text);
+		font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+	}
+	main { max-width: 560px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+	header { padding: 4px 2px; }
+	h1 { margin: 0; font-size: 24px; }
+	h2 { margin: 0 0 12px; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+	a { color: var(--link); text-decoration: none; }
+	.back { font-size: 14px; padding: 6px 0; }
+	.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+	.hidden { display: none !important; }
+	.muted { color: var(--dim); font-size: 14px; margin: 0; }
+	p { margin: 0 0 10px; }
+
+	.services { display: flex; flex-direction: column; gap: 10px; }
+	.service {
+		display: flex; align-items: flex-start; gap: 12px; cursor: pointer;
+		padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg);
+	}
+	.service.disabled { cursor: default; opacity: 0.55; }
+	.service input { width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--bad); flex: none; }
+	.service .name { font-weight: 600; }
+	.service .info { color: var(--dim); font-size: 14px; }
+	.service .result { font-size: 14px; margin-top: 2px; }
+	.result.ok { color: var(--ok); }
+	.result.error { color: var(--bad); }
+
+	button {
+		font: inherit; color: var(--text); background: transparent; cursor: pointer;
+		border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; min-height: 44px;
+	}
+	button:disabled { opacity: 0.5; cursor: default; }
+	.danger { background: var(--bad); border-color: var(--bad); color: #1a0505; font-weight: 700; width: 100%; margin-top: 14px; }
+	.next { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
+</style>
+</head>
+<body>
+<main>
+	<a class="back" href="/remote.html">← Tālvadība</a>
+	<header><h1>Izrakstīties</h1></header>
+
+	<section class="card">
+		<p class="muted">Atslēdz spoguli no šī cilvēka kontiem un dzēš viņa datus, lai spoguli varētu lietot kāds cits. Atzīmē, ko notīrīt:</p>
+		<div class="services" id="services"></div>
+		<button type="button" class="danger" id="signout" disabled>Izrakstīties</button>
+	</section>
+
+	<section class="card hidden" id="next-card">
+		<h2>Jaunais lietotājs var pieslēgties</h2>
+		<ul class="next" id="next"></ul>
+	</section>
+
+	<p class="muted hidden" id="offline">Neizdodas sasniegt spoguli. Vai telefons ir tajā pašā WiFi tīklā?</p>
+</main>
+
+<script>
+	const $ = (id) => document.getElementById(id);
+	const count = (n, one, many) => `${n} ${n % 10 === 1 && n % 100 !== 11 ? one : many}`;
+
+	// Katrs modulis pats zina, kā sevi notīrīt — šeit tikai izsaucam to API.
+	// describe() -> { active, text, locked } no moduļa stāvokļa.
+	const SERVICES = [
+		{
+			id: "google",
+			name: "Google kalendārs",
+			stateUrl: "/calendar/api/state",
+			actionUrl: "/calendar/api/signout",
+			describe (s) {
+				if (s.status === "no_client") return null; // Google nav iestatīts — nav ko atslēgt
+				const active = s.status === "connected" || s.status === "starting";
+				return { active, text: active ? "Pieslēgts" : "Nav pieslēgts" };
+			},
+			next: "<b>Google kalendārs</b> — spogulī (un lapā <a href=\"/calendar\">Kalendārs</a>) redzams kods, ko ievadīt google.com/device."
+		},
+		{
+			id: "spotify",
+			name: "Spotify",
+			stateUrl: "/spotify/api/state",
+			actionUrl: "/spotify/api/disconnect",
+			describe (s) {
+				if (s.connected) {
+					const name = s.account && s.account.name;
+					return { active: true, text: name ? `Pieslēgts · ${name}` : "Pieslēgts" };
+				}
+				if (s.legacy) return { active: false, locked: true, text: "Pieslēgts caur secrets.js — to var noņemt tikai tur" };
+				return { active: false, text: "Nav pieslēgts" };
+			},
+			next: "<b>Spotify</b> — lapā <a href=\"/spotify\">Spotify</a> spied „Pieslēgt Spotify”. Ja Spotify lietotne ir Development režīmā, jaunā cilvēka e-pasts jāpievieno Spotify Dashboard → User Management."
+		},
+		{
+			id: "todo",
+			name: "Uzdevumi un iepirkumi",
+			stateUrl: "/todo/api/state",
+			actionUrl: "/todo/api/reset",
+			describe (s) {
+				const tasks = s.tasks.length + s.done.tasks.length;
+				const shopping = s.shopping.length + s.done.shopping.length;
+				if (!tasks && !shopping) return { active: false, text: "Saraksti ir tukši" };
+				return { active: true, text: `${count(tasks, "uzdevums", "uzdevumi")} · ${count(shopping, "iepirkums", "iepirkumi")} — tiks dzēsti` };
+			},
+			next: "<b>Saraksti</b> — tukši, var pievienot lapā <a href=\"/todo\">Saraksti</a> vai ar balsi."
+		},
+		{
+			id: "routines",
+			name: "Treniņi",
+			stateUrl: "/routines/api/state",
+			actionUrl: "/routines/api/reset",
+			describe (s) {
+				const targets = s.prefs.targets.length;
+				if (!targets && !s.workout && s.level <= 1) return { active: false, text: "Nav saglabātu datu" };
+				return { active: true, text: `Līmenis ${s.level}${targets ? ` · ${count(targets, "ķermeņa daļa", "ķermeņa daļas")}` : ""} — izvēles un vēsture tiks dzēstas` };
+			},
+			next: "<b>Treniņi</b> — lapā <a href=\"/routines\">Treniņi</a> izvēlas, ko trenēt."
+		}
+	];
+
+	let rows = []; // { service, info, input, result }
+
+	async function post (url) {
+		const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+		const data = await res.json().catch(() => ({}));
+		if (!res.ok) throw new Error(data.error || `Kļūda ${res.status}`);
+		return data;
+	}
+
+	function renderRow (service, info) {
+		const label = document.createElement("label");
+		label.className = `service${info.active ? "" : " disabled"}`;
+		const input = document.createElement("input");
+		input.type = "checkbox";
+		input.checked = info.active;
+		input.disabled = !info.active;
+		const body = document.createElement("div");
+		const name = document.createElement("div");
+		name.className = "name";
+		name.textContent = service.name;
+		const text = document.createElement("div");
+		text.className = "info";
+		text.textContent = info.text;
+		const result = document.createElement("div");
+		result.className = "result";
+		body.append(name, text, result);
+		label.append(input, body);
+		return { label, input, text, result };
+	}
+
+	function updateButton () {
+		$("signout").disabled = !rows.some((r) => r.input.checked);
+	}
+
+	async function load () {
+		// Moduļi, kas nav config.js (API atbild ar 404), vienkārši netiek rādīti.
+		const states = await Promise.all(SERVICES.map((s) => fetch(s.stateUrl).then((r) => (r.ok ? r.json() : null)).catch(() => null)));
+		if (states.every((s) => s === null)) {
+			$("offline").classList.remove("hidden");
+			return;
+		}
+		$("offline").classList.add("hidden");
+		const list = $("services");
+		list.replaceChildren();
+		rows = [];
+		SERVICES.forEach((service, i) => {
+			let info = null;
+			try {
+				info = states[i] && service.describe(states[i]);
+			} catch {
+				info = null;
+			}
+			if (!info) return;
+			const row = { service, ...renderRow(service, info) };
+			row.input.addEventListener("change", updateButton);
+			list.append(row.label);
+			rows.push(row);
+		});
+		updateButton();
+	}
+
+	$("signout").addEventListener("click", async () => {
+		const chosen = rows.filter((r) => r.input.checked);
+		if (!chosen.length) return;
+		if (!confirm(`Izrakstīties un notīrīt: ${chosen.map((r) => r.service.name).join(", ")}?\n\nTo nevar atsaukt.`)) return;
+
+		$("signout").disabled = true;
+		rows.forEach((r) => { r.input.disabled = true; });
+		const done = [];
+		// Pēc kārtas (nevis vienlaikus), lai katrai rindai būtu skaidrs rezultāts.
+		for (const row of chosen) {
+			row.result.textContent = "Notīra…";
+			row.result.className = "result";
+			try {
+				await post(row.service.actionUrl);
+				row.result.textContent = "✓ Notīrīts";
+				row.result.className = "result ok";
+				done.push(row.service);
+			} catch (error) {
+				row.result.textContent = error.message;
+				row.result.className = "result error";
+			}
+		}
+
+		if (done.length) {
+			$("next").innerHTML = done.map((s) => `<li>${s.next}</li>`).join("");
+			$("next-card").classList.remove("hidden");
+		}
+		// Atjauno stāvokļa tekstus, bet paturam rezultātus redzamus.
+		const results = new Map(rows.map((r) => [r.service.id, [r.result.textContent, r.result.className]]));
+		await load();
+		rows.forEach((r) => {
+			const [text, cls] = results.get(r.service.id) || ["", "result"];
+			r.result.textContent = text;
+			r.result.className = cls;
+		});
+	});
+
+	load();
+	document.addEventListener("visibilitychange", () => {
+		if (!document.hidden && $("next-card").classList.contains("hidden")) load();
+	});
+</script>
+</body>
+</html>

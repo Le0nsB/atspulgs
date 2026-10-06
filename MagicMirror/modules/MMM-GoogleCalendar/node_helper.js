@@ -127,6 +127,7 @@ function parseIcsEvents (text, feedName, from, to) {
 
 const DEVICE_CODE_URL = "https://oauth2.googleapis.com/device/code";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
+const REVOKE_URL = "https://oauth2.googleapis.com/revoke";
 const EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
 // Pilnā "calendar" atļauja, jo device flow NEatļauj šaurāko calendar.events
 // (Google atbild invalid_scope), bet notikumu pievienošanai vajag rakstīt.
@@ -618,9 +619,29 @@ module.exports = NodeHelper.create({
 		this.clearToken();
 		this.status = "starting";
 		this.googleEvents = [];
-		this.events = [...this.icsEvents];
 		this.lastSent = null;
+		// Uzreiz noņem iepriekšējā konta notikumus no spoguļa (ICS paliek).
+		this.publish();
 		this.beginPairing();
+	},
+
+	// Izrakstīšanās (lapa /signout): atsauc piekļuvi arī Google pusē (lai iepriekšējā
+	// lietotāja tokens vairs nekur neder) un sāk pieslēgšanu jaunam lietotājam.
+	async signOut () {
+		const token = this.refreshToken;
+		if (token) {
+			try {
+				await fetch(REVOKE_URL, {
+					method: "POST",
+					headers: { "Content-Type": "application/x-www-form-urlencoded" },
+					body: new URLSearchParams({ token })
+				});
+			} catch (err) {
+				// Bez interneta atsaukt nevar — tokenu vienalga izdzēšam no spoguļa.
+				Log.warn(`[MMM-GoogleCalendar] neizdevās atsaukt tokenu: ${err.message}`);
+			}
+		}
+		this.reconnect();
 	},
 
 	registerRoutes () {
@@ -647,10 +668,17 @@ module.exports = NodeHelper.create({
 		app.get("/calendar/api/state", (req, res) => res.json(this.phoneState()));
 		app.post("/calendar/api/events", json, action((body) => this.addEvent(body)));
 		app.post("/calendar/api/delete", json, action((body) => this.deleteEvent(body.id)));
+		// beginPairing ir asinhrons — pagaida, lai atbildē jau ir kods.
+		const waitForPairing = async () => {
+			for (let i = 0; i < 20 && this.status !== "pairing"; i++) await new Promise((r) => setTimeout(r, 100));
+		};
 		app.post("/calendar/api/reconnect", json, action(async () => {
 			this.reconnect();
-			// beginPairing ir asinhrons — pagaida, lai atbildē jau ir kods.
-			for (let i = 0; i < 20 && this.status !== "pairing"; i++) await new Promise((r) => setTimeout(r, 100));
+			await waitForPairing();
+		}));
+		app.post("/calendar/api/signout", json, action(async () => {
+			await this.signOut();
+			await waitForPairing();
 		}));
 	}
 });

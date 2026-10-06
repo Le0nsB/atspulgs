@@ -1406,7 +1406,7 @@ pre {
  *   | Spotify   | Alert     |
  *   | Notification | Configure |
  *   | Classes   | Links     |
- *   | View mirror |
+ *   | View mirror | Izrakstīties |
  * Citu moduļu pievienotās pogas (ja tādas būs) — beigās.
  */
 .menu-nav:has(> #power-button) {
@@ -1470,6 +1470,7 @@ pre {
   & > #classes-button { order: 11; }
   & > #links-button { order: 12; }
   & > #mirror-link-button { order: 13; }
+  & > #signout-button { order: 14; }
 }
 
 /* Lai pēdējā rinda nav pie pašas apakšējās malas / iPhone žestu joslas. */

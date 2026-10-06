@@ -54,8 +54,12 @@ Module.register("MMM-VoiceCommands", {
 		captureDelay: 1200, // ms klusuma pēc "nopirku …", pirms teksts tiek uzskatīts par pabeigtu
 
 		// Aktivācijas vārds(-i). Var būt viens teksts vai masīvs.
-		activation: ["spoguli", "spogulīt", "spogulīti"],
+		activation: ["spoguli", "robert"],
 		activationTimeout: 8000, // cik ilgi (ms) pēc aktivācijas gaidīt komandu
+		// Cik tālu no teikuma sākuma drīkst būt aktivācijas vārds (0 = tikai pirmais
+		// vārds, 1 = atļauj arī "hei spoguli"). Citādi "paskaties uz spoguli" sarunā
+		// ieslēdz klausīšanos.
+		activationMaxPosition: 1,
 		sameUtteranceCommand: true, // atļaut "spoguli parādi laikapstākļus" vienā elpas vilcienā
 
 		// Nelielu atpazīšanas kļūdu pielaide (Levenšteina attālums vārda līmenī).
@@ -97,11 +101,11 @@ Module.register("MMM-VoiceCommands", {
 			{ phrases: ["iepriekšējā dziesma", "iepriekšēja dziesma"], notification: "SPOTIFY_PREV", label: "Iepriekšējā dziesma" },
 			{ phrases: ["skaļāk"], notification: "SPOTIFY_VOLUME_UP", label: "Skaļāk" },
 			{ phrases: ["klusāk"], notification: "SPOTIFY_VOLUME_DOWN", label: "Klusāk" },
-			{ phrases: ["parādi mūziku", "kas skan", "kāda dziesma skan"], notification: "PAGES_GOTO", payload: 4, label: "Mūzika" },
+			{ phrases: ["parādi mūziku", "kas skan", "kāda dziesma skan", "mūzika"], notification: "PAGES_GOTO", payload: 4, label: "Mūzika" },
 
 			// --- interneta radio (skat. MMM-Radio) ---
 			{ phrases: ["ieslēdz radio", "atskaņo radio", "palaid radio", "radio"], notification: "RADIO_PLAY", label: "Radio" },
-			{ phrases: ["izslēdz radio", "apturi radio", "radio pietiek"], notification: "RADIO_STOP", label: "Radio izslēgts" },
+			{ phrases: ["izslēdz radio", "apturi radio", "radio pietiek", "beidz"], notification: "RADIO_STOP", label: "Radio izslēgts" },
 			{ phrases: ["nākamā stacija", "cita stacija", "nākamais radio"], notification: "RADIO_NEXT", label: "Nākamā stacija" },
 			{ phrases: ["iepriekšējā stacija", "iepriekšējais radio"], notification: "RADIO_PREV", label: "Iepriekšējā stacija" },
 			{ phrases: ["ieslēdz staciju", "ieslēdz radio staciju"], notification: "RADIO_PLAY_NAMED", capture: true, label: "Radio" },
@@ -125,7 +129,10 @@ Module.register("MMM-VoiceCommands", {
 			{ phrases: ["nopirku", "esmu nopircis", "esmu nopirkusi"], notification: "TODO_COMPLETE", payload: { list: "shopping" }, capture: true, label: "Nopirkts" },
 			{ phrases: ["izdarīju", "pabeidzu", "atzīmē kā izdarītu", "atzīmē"], notification: "TODO_COMPLETE", payload: { list: "tasks" }, capture: true, label: "Izdarīts" },
 			{ phrases: ["pievieno iepirkumiem", "pievieno iepirkumu sarakstam", "pievieno sarakstam", "pievieno"], notification: "TODO_ADD", payload: { list: "shopping" }, capture: true, label: "Pievienots" },
-			{ phrases: ["pievieno uzdevumu", "pievieno uzdevumiem", "jauns uzdevums"], notification: "TODO_ADD", payload: { list: "tasks" }, capture: true, label: "Uzdevums pievienots" }
+			{ phrases: ["pievieno uzdevumu", "pievieno uzdevumiem", "jauns uzdevums"], notification: "TODO_ADD", payload: { list: "tasks" }, capture: true, label: "Uzdevums pievienots" },
+
+			// --- pārsteigums (skat. MMM-EasterEggs): "Spoguli, spoguli, saki man tā" ---
+			{ phrases: ["saki man tā"], notification: "EASTEREGG_GLITTER", label: "✨" }
 		]
 	},
 
@@ -281,17 +288,19 @@ Module.register("MMM-VoiceCommands", {
 		});
 	},
 
+	// Tikai komandu vārdnīca, BEZ aktivācijas vārda. Agrāk uzvedne bija
+	// "Spoguli, parādi …. Spoguli, parādi …." — uz neskaidra audio (mūzika,
+	// vairāki runātāji) whisper var turpināt uzvednes rakstu un izdomāt
+	// "Spoguli, …". "Spoguli" ir parasts vārds, to whisper atpazīst arī bez uzvednes.
 	buildWhisperPrompt () {
-		const activation = Array.isArray(this.config.activation) ? this.config.activation[0] : this.config.activation;
-		const name = activation ? activation[0].toUpperCase() + activation.slice(1) : "";
 		const phrases = (this.config.commands || []).map((c) => (c.phrases || [])[0]).filter(Boolean);
 		let prompt = "";
 		for (const p of phrases) {
-			const next = `${prompt}${name}, ${p}. `;
+			const next = prompt ? `${prompt}, ${p}` : p;
 			if (next.length > 600) break; // whisper uzvednei ir ~224 tokenu limits
 			prompt = next;
 		}
-		return prompt.trim();
+		return prompt ? `${prompt[0].toUpperCase()}${prompt.slice(1)}.` : "";
 	},
 
 	// Aktivācijas vārds dzirdēts (jebkurā klientā) — iedegam malas visur.
@@ -491,12 +500,14 @@ Module.register("MMM-VoiceCommands", {
 				const tokens = this.tokenize(c);
 				const m = this.matchActivation(tokens.map((t) => this.normalize(t)));
 				if (!m.matched) continue;
+				const found = this.config.sameUtteranceCommand && m.rest
+					? this.findCommand(m.rest, tokens.slice(m.restIndex).join(" "))
+					: null;
+				// Tikai līdzīgs vārds ("spogulis", whisper kļūda) pats par sevi neaktivizē —
+				// tad tam jāseko komandai. Citādi saruna par spoguli ieslēdz klausīšanos.
+				if (!m.exact && !found) continue;
 				this.activate();
-				if (this.config.sameUtteranceCommand && m.rest) {
-					const restOrig = tokens.slice(m.restIndex).join(" ");
-					const found = this.findCommand(m.rest, restOrig);
-					if (found) this.handleFound(found, m.rest, final);
-				}
+				if (found) this.handleFound(found, m.rest, final);
 				return;
 			}
 			return;
@@ -585,27 +596,38 @@ Module.register("MMM-VoiceCommands", {
 
 	/* --------------------------- sakritības --------------------------- */
 
+	// Aktivācijas vārds jāpasaka teikuma sākumā (skat. activationMaxPosition).
+	// `exact: false` — sakrita tikai ar vienas burta pielaidi (fuzzy).
 	matchActivation (words) {
-		for (let i = 0; i < words.length; i++) {
+		const maxStart = Math.min(words.length - 1, this.config.activationMaxPosition ?? Infinity);
+		let fuzzyHit = null;
+		for (let i = 0; i <= maxStart; i++) {
 			for (const act of this.activationNorm) {
-				if (this.wordsMatchAt(words, i, act)) {
-					return { matched: true, rest: words.slice(i + act.length).join(" "), restIndex: i + act.length };
-				}
+				const how = this.wordsMatchAt(words, i, act);
+				if (!how) continue;
+				const hit = { matched: true, exact: how === "exact", rest: words.slice(i + act.length).join(" "), restIndex: i + act.length };
+				if (hit.exact) return hit;
+				fuzzyHit = fuzzyHit || hit;
 			}
 		}
-		return { matched: false, rest: "", restIndex: -1 };
+		return fuzzyHit || { matched: false, exact: false, rest: "", restIndex: -1 };
 	},
 
+	// "exact" | "fuzzy" | false
 	wordsMatchAt (words, start, actWords) {
 		if (start + actWords.length > words.length) return false;
+		let how = "exact";
 		for (let j = 0; j < actWords.length; j++) {
 			const w = words[start + j];
 			const a = actWords[j];
 			if (w === a) continue;
-			if (this.config.fuzzy && a.length >= 4 && this.levenshtein(w, a) <= 1) continue;
+			if (this.config.fuzzy && a.length >= 4 && this.levenshtein(w, a) <= 1) {
+				how = "fuzzy";
+				continue;
+			}
 			return false;
 		}
-		return true;
+		return how;
 	},
 
 	// Atgriež komandu ar visspecifiskāko sakritumu: precīzs sakritums pārspēj

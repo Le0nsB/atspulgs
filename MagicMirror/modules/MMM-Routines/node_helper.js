@@ -249,5 +249,11 @@ module.exports = NodeHelper.create({
 		app.post("/routines/api/feedback", json, action((body) => {
 			if (!this.feedback(body.feedback)) throw new Error("Šobrīd nav treniņa, par kuru sniegt atbildi.");
 		}));
+		// Izrakstīšanās (lapa /signout): viss no sākuma nākamajam lietotājam.
+		app.post("/routines/api/reset", json, action(() => {
+			this.store.reset();
+			this.state = this.store.load();
+			this.broadcastState();
+		}));
 	}
 });

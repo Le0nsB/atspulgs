@@ -84,6 +84,17 @@ let config = {
 			}
 		},
 		{
+			// Telefona lapa /signout (poga "Izrakstīties" tālvadībā): atslēdz Google
+			// un Spotify kontus, iztukšo sarakstus un treniņus, lai spoguli varētu
+			// pārņemt cits cilvēks. Bez position — uz ekrāna nekā nav.
+			module: "MMM-SignOut"
+		},
+		{
+			// Pilnekrāna pārsteigumi: vizuļi ("Spoguli, spoguli, saki man tā") un
+			// sprādziens (vidējais pirksts, MMM-GestureNav). Bez position.
+			module: "MMM-EasterEggs"
+		},
+		{
 			module: "clock",
 			position: "top_left"
 		},
@@ -257,6 +268,7 @@ let config = {
 				threeFingers: "RADIO_TOGGLE", // 3 pirksti -> radio ieslēgt/izslēgt
 				fist: "NEWSDETAIL_NEXT", // dūre -> nākamā ziņa (detalizēto ziņu lapā)
 				openPalm: "PAGES_HOME", // atvērta plauksta -> sākums
+				middleFinger: "EASTEREGG_EXPLOSION", // vidējais pirksts -> sprādziens (MMM-EasterEggs)
 				// Pāršķiršana ar roku: paceli roku aktīvajā zonā un pāvelc pa kreisi/labi,
 				// lai pārietu uz iepriekšējo/nākamo MMM-Pages lapu.
 				swipeEnabled: true,

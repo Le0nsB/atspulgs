@@ -3,9 +3,8 @@
  * Vienkāršs "lapu"/logu pārslēdzējs. Ar kreiso/labo bulttaustiņu var
  * pārslēgties starp vairākiem skatiem. Katrā lapā redzami tikai tie
  * moduļi, kas norādīti `pages` sarakstā; `fixed` moduļi redzami vienmēr.
- * Lapas maiņa ir īsta slīdēšana (animate.css slideIn/slideOut) — nevis
- * vienkārša izbalēšana — ar virzienu atkarībā no tā, vai ejam uz priekšu
- * vai atpakaļ.
+ * Lapas maiņa: vecā lapa izbalē un aizslīd, pēc tam jaunā ienāk no otras
+ * puses (virziens atkarīgs no tā, vai ejam uz priekšu vai atpakaļ).
  *
  * Citi moduļi (piem. MMM-GestureNav) var pārslēgt lapas ar notifikācijām:
  *   PAGES_NEXT              -> nākamā lapa
@@ -28,8 +27,10 @@ Module.register("MMM-Pages", {
 		useArrowKeys: true,
 		// Vai apļot: no pēdējās lapas ar "pa labi" atgriezties pirmajā.
 		wrap: true,
-		// Pārejas animācijas ilgums (ms).
-		animationTime: 400
+		// Visas pārejas ilgums (ms): pusi aiziet vecā lapa, pusi ienāk jaunā.
+		animationTime: 500,
+		// Cik pikseļus moduļi pārejas laikā aizslīd/ienāk no sāniem.
+		slideDistance: 40
 	},
 
 	start () {
@@ -58,8 +59,9 @@ Module.register("MMM-Pages", {
 
 	notificationReceived (notification, payload) {
 		switch (notification) {
+			// Tikai DOM_OBJECTS_CREATED: ALL_MODULES_STARTED pienāk, pirms moduļu
+			// DOM elementi vispār izveidoti, un tad hide() neko nepaslēptu.
 			case "DOM_OBJECTS_CREATED":
-			case "ALL_MODULES_STARTED":
 				this.domReady = true;
 				this.updatePages();
 				break;
@@ -120,32 +122,88 @@ Module.register("MMM-Pages", {
 		if (!this.domReady || this.config.pages.length === 0) return;
 
 		const visible = this.config.pages[this.curPage] || [];
-		const speed = this.config.animationTime;
-		// Īsta slīdēšana (animate.css), nevis tikai izbalēšana: lapa "aizslīd" projām
-		// vienā virzienā, jaunā ienāk no otras puses.
-		const outAnim = direction > 0 ? "slideOutLeft" : "slideOutRight";
-		const inAnim = direction > 0 ? "slideInRight" : "slideInLeft";
+		// Pirmā izsaukuma reizē (starts) lapu uzliekam uzreiz, bez animācijas.
+		const first = !this._initialized;
+		this._initialized = true;
+		const half = first ? 0 : Math.round(this.config.animationTime / 2);
+		const shift = this.config.slideDistance * (direction > 0 ? 1 : -1);
+
+		// Pāreja notiek divās fāzēs: vispirms vecās lapas moduļi izbalē un
+		// nedaudz aizslīd, un TIKAI TAD ienāk jaunie. Ja abas lapas animētu
+		// vienlaikus, abu lapu moduļi uz brīdi atrastos vienā reģionā viens
+		// zem otra (MM tos izņem no plūsmas tikai animācijas beigās), tāpēc
+		// jaunā lapa vispirms parādītos nobīdīta un tad „ielēktu" vietā.
+		clearTimeout(this._showTimer);
+		const incoming = [];
+		let animatedOut = false;
 
 		MM.getModules().enumerate((module) => {
 			if (module.name === "MMM-Pages") return;
 
 			const keepVisible = this.config.fixed.includes(module.name) || visible.includes(module.name);
-			// Animējam tikai moduļus, kam redzamība tiešām mainās — fiksētie moduļi
-			// (pulkstenis, žestu nav. u.c.), kas paliek redzami, nedrīkst pie katras
-			// lapas maiņas "aizslīdēt un atgriezties".
-			const wasVisible = !module.hidden;
-			const transitioning = wasVisible !== keepVisible;
+			const lockedByUs = module.lockStrings.includes(this.identifier);
 
-			const noop = () => {};
-			try {
-				if (keepVisible) {
-					module.show(speed, noop, { lockString: this.identifier, ...(transitioning ? { animate: inAnim } : {}) });
-				} else {
-					module.hide(speed, noop, { lockString: this.identifier, ...(transitioning ? { animate: outAnim } : {}) });
+			if (keepVisible) {
+				// Rādām tikai tos, ko paslēpām mēs — fiksētie un jau redzamie
+				// moduļi paliek netraucēti.
+				if (lockedByUs) incoming.push(module);
+			} else if (!lockedByUs || first) {
+				const wasVisible = !module.hidden;
+				if (wasVisible && half > 0) {
+					animatedOut = true;
+					this.slide(module, 0, -shift, half, "ease-in", true);
 				}
-			} catch (error) {
-				Log.warn(`MMM-Pages: neizdevās pārslēgt moduli ${module.name}`, error);
+				try {
+					module.hide(wasVisible ? half : 0, () => this.stopSlide(module), { lockString: this.identifier });
+				} catch (error) {
+					Log.warn(`MMM-Pages: neizdevās paslēpt moduli ${module.name}`, error);
+				}
 			}
 		});
+
+		if (animatedOut) this._outUntil = Date.now() + half;
+		// Ja iepriekšējā pāreja vēl izbalina vecos moduļus (ātra šķiršana), gaidām arī to.
+		const delay = Math.max(0, (this._outUntil || 0) - Date.now());
+
+		const showIncoming = () => {
+			incoming.forEach((module) => {
+				try {
+					// Ātrā šķiršanā hide() atzvans var nebūt izpildījies — noņemam
+					// palikušo nobīdi, lai modulis neparādītos pabīdīts.
+					this.stopSlide(module);
+					module.show(half, () => {}, { lockString: this.identifier });
+					if (half > 0 && !module.hidden) this.slide(module, shift, 0, half, "ease-out", false);
+				} catch (error) {
+					Log.warn(`MMM-Pages: neizdevās parādīt moduli ${module.name}`, error);
+				}
+			});
+		};
+
+		if (delay > 0) {
+			this._showTimer = setTimeout(showIncoming, delay);
+		} else {
+			showIncoming();
+		}
+	},
+
+	// Horizontāla nobīde ar Web Animations API (tikai transform — to zīmē GPU,
+	// tāpēc nav raustīšanās). Caurspīdīgumu jau animē pats MM (hide/show).
+	slide (module, fromX, toX, duration, easing, keep) {
+		const wrapper = document.getElementById(module.identifier);
+		if (!wrapper || typeof wrapper.animate !== "function") return;
+		this.stopSlide(module);
+		this._slides = this._slides || {};
+		this._slides[module.identifier] = wrapper.animate(
+			[{ transform: `translateX(${fromX}px)` }, { transform: `translateX(${toX}px)` }],
+			{ duration, easing, fill: keep ? "forwards" : "none" }
+		);
+	},
+
+	stopSlide (module) {
+		const anim = this._slides && this._slides[module.identifier];
+		if (anim) {
+			anim.cancel();
+			delete this._slides[module.identifier];
+		}
 	}
 });

@@ -211,6 +211,19 @@ class RoutinesStore {
 		});
 	}
 
+	// Izrakstīšanās (jauns lietotājs): dzēš izvēles, treniņus un vēsturi, līmenis atpakaļ uz 1.
+	reset () {
+		this.tx(() => {
+			this.db.exec(`
+				UPDATE user_state SET level = 1, last_prompt_at = 0, current_workout_id = NULL WHERE id = 1;
+				DELETE FROM history;
+				DELETE FROM workout_exercises; DELETE FROM workout_targets; DELETE FROM workout_equipment;
+				DELETE FROM workouts;
+				DELETE FROM user_targets; DELETE FROM user_equipment;
+			`);
+		});
+	}
+
 	/* ------------------------- migrācija ------------------------- */
 
 	// Vienreiz pārnes veco data.json (ja datubāze vēl tukša) un pārvieto to uz `backupFile`.

@@ -125,6 +125,11 @@ class TodoStore {
 		return this.db.prepare("DELETE FROM todo_items WHERE list = ? AND done = 1").run(TodoStore.checkList(list)).changes;
 	}
 
+	// Izrakstīšanās (jauns lietotājs): abi saraksti tukši.
+	clearAll () {
+		return this.db.prepare("DELETE FROM todo_items").run().changes;
+	}
+
 	purgeOldDone (now = Date.now()) {
 		return this.db.prepare("DELETE FROM todo_items WHERE done = 1 AND done_at < ?").run(now - DONE_KEEP_MS).changes;
 	}

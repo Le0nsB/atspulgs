@@ -293,6 +293,7 @@ module.exports = NodeHelper.create({
 		app.post("/todo/api/delete", json, action((b) => this.store.remove(b.id)));
 		app.post("/todo/api/move", json, action((b) => this.store.move(b.id, Number(b.direction))));
 		app.post("/todo/api/clear-done", json, action((b) => this.store.clearDone(b.list)));
+		app.post("/todo/api/reset", json, action(() => this.store.clearAll()));
 	}
 });
 

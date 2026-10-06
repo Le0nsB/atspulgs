@@ -7,6 +7,7 @@
  *   • 2 pirksti        -> notifikācija (pēc noklusējuma PAGES_GOTO 2 = kalendārs)
  *   • 3 pirksti        -> notifikācija (pēc noklusējuma neko nedara)
  *   • atvērta plauksta -> notifikācija (pēc noklusējuma PAGES_HOME)
+ *   • tikai vidējais pirksts -> notifikācija (pēc noklusējuma neko nedara)
  * (Pēc izvēles var ieslēgt arī pāršķiršanu ar roku: swipeEnabled: true.)
  *
  * Lai gar sāniem nolaistas rokas netiktu uztvertas, roka jāatpazīst tikai tad,
@@ -59,6 +60,9 @@ Module.register("MMM-GestureNav", {
 		twoFingers: "PAGES_GOTO", twoFingersPayload: 2, // 2 pirksti -> mēneša kalendārs (lapa 2)
 		threeFingers: null, threeFingersPayload: undefined,
 		openPalm: "PAGES_HOME", openPalmPayload: undefined, // atvērta plauksta -> sākums
+		// Tikai vidējais pirksts izstiepts (pārējie saliekti). Atsevišķs žests, nevis
+		// "1 pirksts" — tas paliek tikai rādītājpirkstam.
+		middleFinger: null, middleFingerPayload: undefined,
 
 		// --- pāršķiršana ar roku (swipe) — pēc noklusējuma IZSLĒGTA ---
 		swipeEnabled: false,
@@ -83,7 +87,7 @@ Module.register("MMM-GestureNav", {
 	start () {
 		this.status = "startē…";
 		this.lastFireAt = 0;
-		this.gestureBucket = -1; // pašreiz noturētais žests (0..3, 5=plauksta, -1=nav)
+		this.gestureBucket = -1; // pašreiz noturētais žests (0..3, 5=plauksta, 6=vidējais pirksts, -1=nav)
 		this.gestureSince = 0; // kopš kura brīža bakets ir nemainīgs
 		this.gestureLastSeen = 0; // pēdējais kadrs, kad bakets sakrita
 		this.firedBucket = -1; // pēdējais nostrādājušais bakets (lai neatkārtojas turot)
@@ -274,15 +278,18 @@ Module.register("MMM-GestureNav", {
 	// Pirksts "izstiepts", ja tas ir gandrīz taisns: virsotnes–pamata attālums
 	// tuvu locītavu ceļa garumam (neatkarīgi no rokas pagrieziena).
 	extendedFingerCount (lm) {
+		return this.extendedFingers(lm).filter(Boolean).length;
+	},
+
+	// [rādītājs, vidējais, zeltnesis, mazais] — vai katrs ir izstiepts.
+	extendedFingers (lm) {
 		const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 		const fingers = [[5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16], [17, 18, 19, 20]];
-		let count = 0;
-		for (const [mcp, pip, dip, tip] of fingers) {
+		return fingers.map(([mcp, pip, dip, tip]) => {
 			const chord = d(lm[mcp], lm[tip]);
 			const path = d(lm[mcp], lm[pip]) + d(lm[pip], lm[dip]) + d(lm[dip], lm[tip]);
-			if (path > 0 && chord / path > 0.82) count += 1;
-		}
-		return count;
+			return path > 0 && chord / path > 0.82;
+		});
 	},
 
 	// Vai roka ir apzināti pacelta (nevis nolaista gar sāniem):
@@ -298,14 +305,17 @@ Module.register("MMM-GestureNav", {
 		return true;
 	},
 
-	// Bakets 0..3 = izstieptu pirkstu skaits; 5 = atvērta plauksta.
+	// Bakets 0..3 = izstieptu pirkstu skaits; 5 = atvērta plauksta; 6 = tikai vidējais pirksts.
 	fingerBucket (lm) {
-		const n = this.extendedFingerCount(lm);
+		const ext = this.extendedFingers(lm);
+		if (!ext[0] && ext[1] && !ext[2] && !ext[3]) return 6;
+		const n = ext.filter(Boolean).length;
 		return n >= this.config.palmMinFingers ? 5 : n;
 	},
 
 	bucketLabel (b) {
 		if (b === 5) return "plauksta";
+		if (b === 6) return "vidējais pirksts";
 		if (b === 0) return "dūre";
 		if (b === 1) return "1 pirksts";
 		if (b < 0) return "…";
@@ -320,6 +330,7 @@ Module.register("MMM-GestureNav", {
 			case 2: return c.twoFingers ? { notification: c.twoFingers, payload: c.twoFingersPayload } : null;
 			case 3: return c.threeFingers ? { notification: c.threeFingers, payload: c.threeFingersPayload } : null;
 			case 5: return c.openPalm ? { notification: c.openPalm, payload: c.openPalmPayload } : null;
+			case 6: return c.middleFinger ? { notification: c.middleFinger, payload: c.middleFingerPayload } : null;
 			default: return null;
 		}
 	},

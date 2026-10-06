@@ -60,8 +60,13 @@ USB mikrofons → arecord (16 kHz) → klusuma/runas detektors → WAV → whisp
 Piezīmes:
 - **Modelis:** `small-q5_1` latviski atpazīst ievērojami labāk par `base`;
   Pi 5 viens īss teikums aizņem ~2–4 s. `base` ir ~2× ātrāks, bet kļūdās biežāk.
-- whisper saņem **uzvedni** ar mūsu komandu frāzēm ("Spoguli, parādi
-  laikapstākļus. …"), tāpēc sagaidāmos vārdus atpazīst precīzāk.
+- whisper saņem **uzvedni** ar mūsu komandu frāzēm ("Parādi laikapstākļus,
+  parādi ziņas, …"), tāpēc sagaidāmos vārdus atpazīst precīzāk. Aktivācijas
+  vārda uzvednē apzināti nav: uz mūzikas / fona sarunām whisper citādi
+  „izdomā” „Spoguli, …” un spogulis aktivizējas pats.
+- Pret nejaušu aktivāciju trokšņainā telpā: „Spoguli” jāsaka **teikuma sākumā**
+  („paskaties uz spoguli” neaktivizē), un līdzīgs vārds („spogulis”) aktivizē
+  tikai tad, ja tam uzreiz seko komanda.
 - Runas detektors (`server.vad`) pielāgojas fona troksnim pats. Ja komandas
   netiek uztvertas klusā balsī — samazini `minRms` (noklusējums 300); ja
   telpas troksnis nepārtraukti "ieslēdz" ierakstu — palielini `startRatio` (3).
@@ -139,7 +144,8 @@ cilne var būt fonā.
 | `server`               | *(skat. augstāk)*                        | Lomai "server": `device`, `whisperBin`, `model`, `threads`, `vad` |
 | `captureDelay`         | `1200`                                   | ms klusuma pēc „nopirku …”, pirms teksts skaitās pabeigts (pārlūka režīmā) |
 | `lang`                 | `"lv-LV"`                                | Atpazīšanas valoda |
-| `activation`           | `["spoguli", "spogulīt", "spogulīti"]`   | Aktivācijas vārds(-i). Teksts vai masīvs |
+| `activation`           | `["spoguli", "robert"]`                  | Aktivācijas vārds(-i). Teksts vai masīvs |
+| `activationMaxPosition`| `1`                                      | Cik tālu no teikuma sākuma drīkst būt aktivācijas vārds (0 = tikai pirmais vārds, 1 = arī „hei spoguli”) |
 | `activationTimeout`    | `8000`                                   | Cik ilgi (ms) pēc aktivācijas gaidīt komandu |
 | `sameUtteranceCommand` | `true`                                   | Atļaut „Spoguli, parādi laikapstākļus” vienā teikumā |
 | `fuzzy`                | `true`                                   | Pieļaut nelielas atpazīšanas kļūdas |

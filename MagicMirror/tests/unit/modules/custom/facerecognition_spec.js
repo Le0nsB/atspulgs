@@ -73,24 +73,45 @@ describe("MMM-FaceRecognition presence state machine", () => {
 		});
 	});
 
+	describe("transition", () => {
+		it("katrā pārejā sūta ekrāna darbību UN FACE_PRESENT/FACE_ABSENT (to izmanto MMM-Routines)", () => {
+			mod.state = "absent";
+			mod.transition("present", 0);
+			expect(mod.sendNotification.mock.calls).toEqual([
+				["REMOTE_ACTION", { action: "MONITORON" }],
+				["FACE_PRESENT"]
+			]);
+		});
+
+		it("bez onPresent/onAbsent sūta tikai FACE_*", () => {
+			mod.config.onAbsent = null;
+			mod.transition("absent", 0);
+			expect(mod.sendNotification.mock.calls).toEqual([["FACE_ABSENT"]]);
+		});
+	});
+
 	describe("cooldownMs", () => {
+		// Katra pāreja = 2 notifikācijas (REMOTE_ACTION + FACE_*), tāpēc skaitām pārejas pēc FACE_*.
+		const faceEvents = () => mod.sendNotification.mock.calls.filter(([n]) => n.startsWith("FACE_")).map(([n]) => n);
+
 		it("bloķē atkārtotu darbību, kamēr nav pagājis cooldownMs", () => {
 			mod.config.cooldownMs = 5000;
 			mod.state = "absent";
 			mod.lastActionAt = -Infinity;
 
 			mod.transition("present", 0);
-			expect(mod.sendNotification).toHaveBeenCalledTimes(1);
+			expect(faceEvents()).toEqual(["FACE_PRESENT"]);
 			expect(mod.state).toBe("present");
 
 			// Mēģina pāriet uz "absent" pirms cooldownMs ir pagājis -> bloķēts.
 			mod.transition("absent", 1000);
-			expect(mod.sendNotification).toHaveBeenCalledTimes(1);
+			expect(faceEvents()).toEqual(["FACE_PRESENT"]);
 			expect(mod.state).toBe("present");
 
 			// Pēc cooldownMs pagāšanas darbība beidzot izpildās.
 			mod.transition("absent", 6000);
-			expect(mod.sendNotification).toHaveBeenCalledTimes(2);
+			expect(faceEvents()).toEqual(["FACE_PRESENT", "FACE_ABSENT"]);
+			expect(mod.sendNotification).toHaveBeenCalledWith("REMOTE_ACTION", { action: "MONITOROFF" });
 			expect(mod.state).toBe("absent");
 		});
 	});

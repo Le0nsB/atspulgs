@@ -60,6 +60,18 @@ describe("MMM-GestureNav gestures", () => {
 		it(">= palmMinFingers -> 5 (plauksta)", () => {
 			expect(mod.fingerBucket(handWith(4))).toBe(5);
 		});
+
+		it("tikai vidējais pirksts -> 6, rādītājs viens pats paliek 1", () => {
+			const lm = blankHand();
+			FINGERS.forEach((f, i) => setFinger(lm, f, i === 1));
+			expect(mod.fingerBucket(lm)).toBe(6);
+			expect(mod.fingerBucket(handWith(1))).toBe(1);
+		});
+
+		it("vidējais pirksts kartējas uz middleFinger", () => {
+			mod.config.middleFinger = "EASTEREGG_EXPLOSION";
+			expect(mod.gestureFor(6)).toEqual({ notification: "EASTEREGG_EXPLOSION", payload: undefined });
+		});
 	});
 
 	describe("gestureFor", () => {

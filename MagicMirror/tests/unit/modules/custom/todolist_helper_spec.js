@@ -44,6 +44,15 @@ describe("MMM-TodoList TodoStore", () => {
 		expect(store.open("tasks")).toEqual([]);
 	});
 
+	it("clearAll iztukšo abus sarakstus (arī atzīmētos)", () => {
+		store.add("tasks", "A");
+		const b = store.add("shopping", "Piens").item;
+		store.setDone(b.id, true);
+		expect(store.clearAll()).toBe(2);
+		expect(store.open("tasks")).toEqual([]);
+		expect(store.done("shopping")).toEqual([]);
+	});
+
 	it("noraida tukšu tekstu un nezināmu sarakstu", () => {
 		expect(() => store.add("shopping", "   ")).toThrow("Ieraksti");
 		expect(() => store.add("nav", "X")).toThrow("Nezināms");

@@ -1,0 +1,56 @@
+/* Pilnekrāna slāņi virs visa spoguļa (arī virs fullscreen_above). */
+.easteregg {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.easteregg-glitter canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.easteregg-explosion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: easteregg-shake 0.45s ease-out;
+  transition: opacity 0.3s ease;
+}
+
+.easteregg-explosion img {
+  width: 100vw;
+  height: 100vh;
+  object-fit: contain;
+  transform: scale(var(--easteregg-scale, 1.6));
+}
+
+.easteregg-explosion.easteregg-out {
+  opacity: 0;
+}
+
+/* Īss balts uzplaiksnījums sprādziena sākumā. */
+.easteregg-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  animation: easteregg-flash 0.35s ease-out;
+}
+
+@keyframes easteregg-flash {
+  0% { opacity: 0.45; }
+  100% { opacity: 0; }
+}
+
+@keyframes easteregg-shake {
+  0%, 100% { transform: translate(0, 0); }
+  15% { transform: translate(-14px, 8px); }
+  30% { transform: translate(12px, -10px); }
+  45% { transform: translate(-9px, -6px); }
+  60% { transform: translate(7px, 6px); }
+  80% { transform: translate(-3px, 2px); }
+}
