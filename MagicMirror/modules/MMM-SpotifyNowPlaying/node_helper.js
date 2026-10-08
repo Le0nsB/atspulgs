@@ -13,22 +13,11 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const express = require("express");
+const phoneAuth = require("../../lib/phone-auth");
 const { SpotifySetup, loadFromDataFile } = require("./spotify-setup");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const DATA_FILE = path.join(ROOT, "data", "spotify.json");
-
-// QR kods telefona lapai — bibliotēka jau ir MMM-Remote-Control atkarībās.
-function loadQrCode () {
-	for (const id of ["qrcode", path.join(ROOT, "modules", "MMM-Remote-Control", "node_modules", "qrcode")]) {
-		try {
-			return require(id);
-		} catch {
-			// mēģina nākamo
-		}
-	}
-	return null;
-}
 
 // Spotify akreditācijas dati tiek lasīti TIKAI šeit, servera pusē, no MagicMirror/secrets.js.
 // Tie nedrīkst nonākt modulī `config` (to MagicMirror atdod pārlūkam caur /config un
@@ -79,6 +68,10 @@ module.exports = NodeHelper.create({
 		fs.watchFile(DATA_FILE, { interval: 2000 }, () => this.reloadCredentials());
 		this.lastControlKey = null;
 		this.lastControlAt = 0;
+		// Izrakstoties telefoni aizmirsti un kods nomainīts -> jauns QR kods spogulī.
+		phoneAuth.on("reset", () => {
+			if (this.clientConfig && !this.config) this.sendNoCredentials();
+		});
 	},
 
 	socketNotificationReceived (notification, payload) {
@@ -127,18 +120,9 @@ module.exports = NodeHelper.create({
 		this.poll(); // pats ieplāno nākamo vaicājumu
 	},
 
-	async sendNoCredentials () {
-		const url = this.phoneUrl();
-		let qrSvg = null;
-		const qr = loadQrCode();
-		if (qr) {
-			try {
-				qrSvg = await qr.toString(url, { type: "svg", margin: 2 });
-			} catch {
-				// bez QR — pietiek ar adresi
-			}
-		}
-		this.sendSocketNotification("SPOTIFY_NO_CREDENTIALS", { url, qrSvg });
+	// QR kods ved caur /pair (pieslēdz telefonu) — to redz tikai spoguļa paša ekrāns.
+	sendNoCredentials () {
+		return phoneAuth.sendPhoneLink(this, "SPOTIFY_NO_CREDENTIALS", this.phoneUrl());
 	},
 
 	phoneUrl () {
@@ -156,7 +140,11 @@ module.exports = NodeHelper.create({
 	registerRoutes () {
 		const app = this.expressApp;
 		if (!app) return;
-		// Tikai application/json (tāpat kā /routines, /calendar, /todo).
+		// Kas drīkst: tikai pieslēgts telefons (vai pats Pi) — skat. lib/phone-auth.js.
+		// guard pārbauda arī Host galveni, tāpēc loginUrl() saņem tikai paša spoguļa adresi.
+		phoneAuth.install(app);
+		const guard = phoneAuth.guard();
+		// Tikai application/json (tāpat kā /routines, /calendar, /todo). Tā nav autentifikācija.
 		const parse = express.json({ limit: "10kb" });
 		const json = (req, res, next) => {
 			if (!req.is("application/json")) return res.status(415).json({ error: "Vajag Content-Type: application/json" });
@@ -172,17 +160,16 @@ module.exports = NodeHelper.create({
 			}
 		};
 
-		app.get("/spotify", (req, res) => {
-			res.set("Cache-Control", "no-cache");
-			res.sendFile(path.join(__dirname, "public", "index.html"));
-		});
-		app.get("/spotify/api/state", (req, res) => res.json(state()));
-		app.post("/spotify/api/app", json, action((req) => this.setup.saveApp(req.body.clientId, req.body.clientSecret)));
+		app.get("/spotify", phoneAuth.page(path.join(__dirname, "public", "index.html")));
+		app.get("/spotify/api/state", guard, (req, res) => res.json(state()));
+		app.post("/spotify/api/app", guard, json, action((req) => this.setup.saveApp(req.body.clientId, req.body.clientSecret)));
 		// Spoguļa adrese, kā to redz telefons — uz turieni starplapa atgriezīs pēc pieteikšanās.
-		app.post("/spotify/api/login", json, action((req) => ({ url: this.setup.loginUrl(`${req.protocol}://${req.get("host")}`) })));
-		app.post("/spotify/api/disconnect", json, action(() => this.setup.disconnect()));
-		app.post("/spotify/api/reset", json, action(() => this.setup.reset()));
-		app.get("/spotify/callback", async (req, res) => {
+		app.post("/spotify/api/login", guard, json, action((req) => ({ url: this.setup.loginUrl(`${req.protocol}://${req.get("host")}`) })));
+		app.post("/spotify/api/disconnect", guard, json, action(() => this.setup.disconnect()));
+		app.post("/spotify/api/reset", guard, json, action(() => this.setup.reset()));
+		// Atgriešanās no Spotify: sīkdatni te neprasām (to aizsargā vienreizējs nonce no
+		// /spotify/api/login, ko var iegūt tikai pieslēgts telefons), tikai Host.
+		app.get("/spotify/callback", phoneAuth.hostOnly(), async (req, res) => {
 			try {
 				await this.setup.callback(req.query || {});
 				this.reloadCredentials();

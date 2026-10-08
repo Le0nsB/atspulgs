@@ -17,6 +17,7 @@ const express = require("express");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const phoneAuth = require("../../lib/phone-auth");
 const { RoutinesStore } = require("./db");
 const { TARGETS, EQUIPMENT, FEEDBACK, MAX_LEVEL, generateWorkout, adjustLevel, videoUrlFor, mediaFor } = require("./exercises");
 
@@ -220,20 +221,20 @@ module.exports = NodeHelper.create({
 
 	registerRoutes () {
 		const app = this.expressApp;
-		// Tikai application/json: šādu POST no citas vietnes pārlūks bez CORS atļaujas nesūtīs
-		// (vajadzētu preflight), tāpēc svešas lapas nevar "iedurt" API, ja atver to telefonā.
+		// Kas drīkst: tikai pieslēgts telefons (vai pats Pi) — skat. lib/phone-auth.js.
+		phoneAuth.install(app);
+		const guard = phoneAuth.guard();
+		// Tikai application/json: šādu POST no citas vietnes pārlūks bez CORS atļaujas
+		// nesūtīs (vajadzētu preflight). Tā nav autentifikācija — to dara `guard`.
 		const parse = express.json({ limit: "10kb" });
 		const json = (req, res, next) => {
 			if (!req.is("application/json")) return res.status(415).json({ error: "Vajag Content-Type: application/json" });
 			parse(req, res, next);
 		};
 
-		app.get("/routines", (req, res) => {
-			res.set("Cache-Control", "no-cache");
-			res.sendFile(path.join(__dirname, "public", "index.html"));
-		});
+		app.get("/routines", phoneAuth.page(path.join(__dirname, "public", "index.html")));
 
-		app.get("/routines/api/state", (req, res) => res.json(this.publicState()));
+		app.get("/routines/api/state", guard, (req, res) => res.json(this.publicState()));
 
 		const action = (fn) => (req, res) => {
 			try {
@@ -244,13 +245,13 @@ module.exports = NodeHelper.create({
 			}
 		};
 
-		app.post("/routines/api/generate", json, action((body) => this.generate(body)));
-		app.post("/routines/api/complete", json, action(() => this.complete()));
-		app.post("/routines/api/feedback", json, action((body) => {
+		app.post("/routines/api/generate", guard, json, action((body) => this.generate(body)));
+		app.post("/routines/api/complete", guard, json, action(() => this.complete()));
+		app.post("/routines/api/feedback", guard, json, action((body) => {
 			if (!this.feedback(body.feedback)) throw new Error("Šobrīd nav treniņa, par kuru sniegt atbildi.");
 		}));
 		// Izrakstīšanās (lapa /signout): viss no sākuma nākamajam lietotājam.
-		app.post("/routines/api/reset", json, action(() => {
+		app.post("/routines/api/reset", guard, json, action(() => {
 			this.store.reset();
 			this.state = this.store.load();
 			this.broadcastState();

@@ -21,6 +21,7 @@ const path = require("node:path");
 const NodeHelper = require("node_helper");
 const Log = require("logger");
 const express = require("express");
+const phoneAuth = require("../../lib/phone-auth");
 const { TodoStore, LISTS } = require("./db");
 
 // Ārpus modules/ — MagicMirror to mapi atdod pa HTTP, tāpēc no turienes datubāzi varētu lejupielādēt.
@@ -28,19 +29,6 @@ const ROOT = path.resolve(__dirname, "..", "..");
 const DATA_DIR = path.join(ROOT, "data");
 const DB_FILE = path.join(DATA_DIR, "todo.db");
 const DEDUPE_MS = 3000;
-
-// QR kods telefona lapai — bibliotēka jau ir MMM-Remote-Control atkarībās.
-// Ja tās nav, spogulis rāda tikai adresi.
-function loadQrCode () {
-	for (const id of ["qrcode", path.join(ROOT, "modules", "MMM-Remote-Control", "node_modules", "qrcode")]) {
-		try {
-			return require(id);
-		} catch {
-			// mēģina nākamo
-		}
-	}
-	return null;
-}
 
 /* ------------------------- teksta sakritība (tīras funkcijas) ------------------------- */
 
@@ -129,6 +117,8 @@ module.exports = NodeHelper.create({
 		this.purge();
 		this.purgeTimer = setInterval(() => this.purge(), 6 * 60 * 60 * 1000);
 		this.registerRoutes();
+		// Izrakstoties telefoni aizmirsti un kods nomainīts -> jauns QR kods spogulī.
+		phoneAuth.on("reset", () => this.sendPhoneLink());
 		Log.info("MMM-TodoList node_helper startēts.");
 	},
 
@@ -178,18 +168,9 @@ module.exports = NodeHelper.create({
 		return out;
 	},
 
-	async sendPhoneLink () {
-		const url = this.phoneUrls()[0];
-		let qrSvg = null;
-		const qr = loadQrCode();
-		if (qr) {
-			try {
-				qrSvg = await qr.toString(url, { type: "svg", margin: 2 });
-			} catch (error) {
-				Log.warn(`MMM-TodoList: neizdevās izveidot QR kodu: ${error.message}`);
-			}
-		}
-		this.sendSocketNotification("TODOLIST_PHONE_LINK", { url, qrSvg });
+	// QR kods ved caur /pair (pieslēdz telefonu) — to redz tikai spoguļa paša ekrāns.
+	sendPhoneLink () {
+		return phoneAuth.sendPhoneLink(this, "TODOLIST_PHONE_LINK", this.phoneUrls()[0]);
 	},
 
 	/* ------------------------- balss komandas ------------------------- */
@@ -265,8 +246,11 @@ module.exports = NodeHelper.create({
 
 	registerRoutes () {
 		const app = this.expressApp;
-		// Tikai application/json (tāpat kā /routines, /calendar): svešas lapas bez
-		// CORS šādu POST nevar nosūtīt, ja kāds tās atver telefonā.
+		// Kas drīkst: tikai pieslēgts telefons (vai pats Pi) — skat. lib/phone-auth.js.
+		phoneAuth.install(app);
+		const guard = phoneAuth.guard();
+		// Tikai application/json: pārlūks šādu POST no citas vietnes bez CORS
+		// atļaujas nesūtīs. Tā nav autentifikācija — to dara `guard`.
 		const parse = express.json({ limit: "10kb" });
 		const json = (req, res, next) => {
 			if (!req.is("application/json")) return res.status(415).json({ error: "Vajag Content-Type: application/json" });
@@ -282,18 +266,15 @@ module.exports = NodeHelper.create({
 			}
 		};
 
-		app.get("/todo", (req, res) => {
-			res.set("Cache-Control", "no-cache");
-			res.sendFile(path.join(__dirname, "public", "index.html"));
-		});
-		app.get("/todo/api/state", (req, res) => res.json(this.phoneState()));
-		app.post("/todo/api/add", json, action((b) => this.store.add(b.list, b.content)));
-		app.post("/todo/api/done", json, action((b) => this.store.setDone(b.id, b.done !== false)));
-		app.post("/todo/api/rename", json, action((b) => this.store.rename(b.id, b.content)));
-		app.post("/todo/api/delete", json, action((b) => this.store.remove(b.id)));
-		app.post("/todo/api/move", json, action((b) => this.store.move(b.id, Number(b.direction))));
-		app.post("/todo/api/clear-done", json, action((b) => this.store.clearDone(b.list)));
-		app.post("/todo/api/reset", json, action(() => this.store.clearAll()));
+		app.get("/todo", phoneAuth.page(path.join(__dirname, "public", "index.html")));
+		app.get("/todo/api/state", guard, (req, res) => res.json(this.phoneState()));
+		app.post("/todo/api/add", guard, json, action((b) => this.store.add(b.list, b.content)));
+		app.post("/todo/api/done", guard, json, action((b) => this.store.setDone(b.id, b.done !== false)));
+		app.post("/todo/api/rename", guard, json, action((b) => this.store.rename(b.id, b.content)));
+		app.post("/todo/api/delete", guard, json, action((b) => this.store.remove(b.id)));
+		app.post("/todo/api/move", guard, json, action((b) => this.store.move(b.id, Number(b.direction))));
+		app.post("/todo/api/clear-done", guard, json, action((b) => this.store.clearDone(b.list)));
+		app.post("/todo/api/reset", guard, json, action(() => this.store.clearAll()));
 	}
 });
 

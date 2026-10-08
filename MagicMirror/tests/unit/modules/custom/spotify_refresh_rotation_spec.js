@@ -31,7 +31,7 @@ function loadHelper (file, fsMock) {
 	}
 }
 
-const tokenResponse = (body) => ({ ok: true, status: 200, json: async () => body });
+const tokenResponse = (body) => ({ ok: true, status: 200, json: () => Promise.resolve(body) });
 const CREDS = { clientId: "a".repeat(32), clientSecret: "b".repeat(32), refreshToken: "old" };
 
 afterEach(() => vi.unstubAllGlobals());
@@ -50,14 +50,14 @@ describe("MMM-SpotifyNowPlaying: refresh token rotācija", () => {
 	});
 
 	it("saglabā jauno refresh token (konta info paliek) un atjauno to atmiņā", async () => {
-		vi.stubGlobal("fetch", vi.fn(async () => tokenResponse({ access_token: "acc", expires_in: 3600, refresh_token: "new" })));
+		vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(tokenResponse({ access_token: "acc", expires_in: 3600, refresh_token: "new" }))));
 		await expect(helper.getAccessToken()).resolves.toBe("acc");
 		expect(helper.config.refreshToken).toBe("new");
 		expect(store.data).toEqual({ ...CREDS, refreshToken: "new", account: { name: "Leons" } });
 	});
 
 	it("bez jauna refresh token atbildē neko neraksta", async () => {
-		vi.stubGlobal("fetch", vi.fn(async () => tokenResponse({ access_token: "acc", expires_in: 3600 })));
+		vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(tokenResponse({ access_token: "acc", expires_in: 3600 }))));
 		await helper.getAccessToken();
 		expect(helper.setup.write).not.toHaveBeenCalled();
 		expect(helper.config.refreshToken).toBe("old");
@@ -65,7 +65,7 @@ describe("MMM-SpotifyNowPlaying: refresh token rotācija", () => {
 
 	it("nepārraksta telefonā saglabātu CITU lietotni", async () => {
 		store.data = { clientId: "c".repeat(32), clientSecret: "d".repeat(32) };
-		vi.stubGlobal("fetch", vi.fn(async () => tokenResponse({ access_token: "acc", expires_in: 3600, refresh_token: "new" })));
+		vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(tokenResponse({ access_token: "acc", expires_in: 3600, refresh_token: "new" }))));
 		await helper.getAccessToken();
 		expect(helper.setup.write).not.toHaveBeenCalled();
 		expect(helper.config.refreshToken).toBe("new");
@@ -97,7 +97,7 @@ describe("MMM-SpotifyDetail: refresh token rotācija", () => {
 	});
 
 	it("izveido data/spotify.json ar jauno refresh token, ja faila nav (atslēgas no secrets.js)", async () => {
-		vi.stubGlobal("fetch", vi.fn(async () => tokenResponse({ access_token: "acc", expires_in: 3600, refresh_token: "new" })));
+		vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(tokenResponse({ access_token: "acc", expires_in: 3600, refresh_token: "new" }))));
 		await helper.getAccessToken();
 		const [file, text, opts] = fsMock.writeFileSync.mock.calls[0];
 		expect(file.endsWith(path.join("data", "spotify.json"))).toBe(true);
@@ -109,7 +109,7 @@ describe("MMM-SpotifyDetail: refresh token rotācija", () => {
 	it("nepārraksta telefonā saglabātu CITU lietotni", async () => {
 		const file = path.join(MODULES, "..", "data", "spotify.json");
 		files[file] = JSON.stringify({ clientId: "c".repeat(32), clientSecret: "d".repeat(32) });
-		vi.stubGlobal("fetch", vi.fn(async () => tokenResponse({ access_token: "acc", expires_in: 3600, refresh_token: "new" })));
+		vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(tokenResponse({ access_token: "acc", expires_in: 3600, refresh_token: "new" }))));
 		await helper.getAccessToken();
 		expect(fsMock.writeFileSync).not.toHaveBeenCalled();
 	});

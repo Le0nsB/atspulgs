@@ -133,6 +133,18 @@
 				return { active: true, text: `Līmenis ${s.level}${targets ? ` · ${count(targets, "ķermeņa daļa", "ķermeņa daļas")}` : ""} — izvēles un vēsture tiks dzēstas` };
 			},
 			next: "<b>Treniņi</b> — lapā <a href=\"/routines\">Treniņi</a> izvēlas, ko trenēt."
+		},
+		{
+			// Jābūt PĒDĒJAM: pēc tā arī šis telefons vairs nav pieslēgts un pārējos neizdotos notīrīt.
+			id: "phones",
+			name: "Pieslēgtie telefoni",
+			stateUrl: "/pair/api/state",
+			actionUrl: "/pair/api/reset",
+			unpairs: true,
+			describe (s) {
+				return { active: true, text: `${count(s.devices, "telefons", "telefoni")} — spogulis tos aizmirsīs (arī šo), QR kods mainīsies` };
+			},
+			next: "<b>Telefoni</b> — jaunais lietotājs noskenē QR kodu spoguļa uzdevumu lapā („Spoguli, parādi uzdevumus”)."
 		}
 	];
 
@@ -224,6 +236,8 @@
 			$("next").innerHTML = done.map((s) => `<li>${s.next}</li>`).join("");
 			$("next-card").classList.remove("hidden");
 		}
+		// Šis telefons vairs nav pieslēgts — stāvokli vairs nevar nolasīt, rezultāti paliek redzami.
+		if (done.some((s) => s.unpairs)) return;
 		// Atjauno stāvokļa tekstus, bet paturam rezultātus redzamus.
 		const results = new Map(rows.map((r) => [r.service.id, [r.result.textContent, r.result.className]]));
 		await load();

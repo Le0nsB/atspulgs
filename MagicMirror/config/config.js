@@ -72,15 +72,17 @@ let config = {
 			// Tālvadība caur pārlūku: http://<pi-ip>:8080/remote.html
 			// (izslēgt/restartēt Pi, pārstartēt MM, ieslēgt/izslēgt moduļus,
 			// mainīt config). Bez position — nekas nav redzams uz ekrāna.
-			// API ir aizsargāts tikai ar ipWhitelist; ja vajag arī apiKey,
-			// ģenerē ar `node --run generate-apikey` moduļa mapē un pievieno šeit.
+			// apiKey šeit APZINĀTI nav: config.js ir lejupielādējams no jebkuras
+			// tīkla ierīces (/config/config.js), tātad atslēga nebūtu slepena, bet tā
+			// IESLĒGTU bīstamos REST galapunktus (/api/shutdown u.c.), kas bez tās
+			// ir bloķēti (secureEndpoints). Tālvadības lapa strādā caur socket.io,
+			// ko ierobežo tikai ipWhitelist — skat. dokumentāciju (ierobežojumi).
 			module: "MMM-Remote-Control",
 			config: {
 				// Papildu poga "Treniņi" tālvadības sākumizvēlnē (config/custom_menu.json;
 				// `type: "link"` ir šī projekta papildinājums remote-menu-ui.mjs).
 				customMenu: "custom_menu.json"
 				// customCommand: {},
-				// apiKey: ""
 			}
 		},
 		{

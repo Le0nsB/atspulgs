@@ -24,6 +24,16 @@ CREATE TABLE IF NOT EXISTS todo_items (
 CREATE INDEX IF NOT EXISTS todo_items_list ON todo_items (list, done, position);
 `;
 
+// Nepabeigtu ierakstu sarakstā nevar būt divu vienādu (reģistrs neskaitās) — to
+// garantē pati datubāze, ne tikai add(). Pirms indeksa izveides dzēš dublikātus,
+// kas varēja rasties agrāk (piem. pārdēvējot), paturot vecāko.
+const UNIQUE_OPEN = `
+DELETE FROM todo_items WHERE done = 0 AND id NOT IN (
+	SELECT MIN(id) FROM todo_items WHERE done = 0 GROUP BY list, lower(content)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS todo_items_open_unique ON todo_items (list, lower(content)) WHERE done = 0;
+`;
+
 const toItem = (r) => ({ id: r.id, list: r.list, content: r.content, done: Boolean(r.done), createdAt: r.created_at, doneAt: r.done_at });
 
 class TodoStore {
@@ -31,10 +41,34 @@ class TodoStore {
 		this.db = new DatabaseSync(file);
 		this.db.exec("PRAGMA journal_mode = WAL;");
 		this.db.exec(SCHEMA);
+		this.tx(() => this.db.exec(UNIQUE_OPEN));
 	}
 
 	close () {
 		this.db.close();
+	}
+
+	// Vairākas darbības kā viena: ja kāda izgāžas, datubāze paliek kā bija.
+	tx (fn) {
+		if (this.db.isTransaction) return fn();
+		this.db.exec("BEGIN");
+		try {
+			const result = fn();
+			this.db.exec("COMMIT");
+			return result;
+		} catch (error) {
+			this.db.exec("ROLLBACK");
+			throw error;
+		}
+	}
+
+	findOpen (list, content) {
+		const r = this.db.prepare("SELECT * FROM todo_items WHERE list = ? AND done = 0 AND lower(content) = lower(?)").get(list, content);
+		return r ? toItem(r) : null;
+	}
+
+	nextPosition (list) {
+		return this.db.prepare("SELECT COALESCE(MAX(position), 0) + 1 AS next FROM todo_items WHERE list = ?").get(list).next;
 	}
 
 	static checkList (list) {
@@ -69,11 +103,12 @@ class TodoStore {
 	add (list, content, now = Date.now()) {
 		TodoStore.checkList(list);
 		const text = TodoStore.cleanContent(content);
-		const existing = this.db.prepare("SELECT * FROM todo_items WHERE list = ? AND done = 0 AND lower(content) = lower(?)").get(list, text);
-		if (existing) return { item: toItem(existing), added: false };
-		const { next } = this.db.prepare("SELECT COALESCE(MAX(position), 0) + 1 AS next FROM todo_items WHERE list = ?").get(list);
-		const { lastInsertRowid } = this.db.prepare("INSERT INTO todo_items (list, content, position, created_at) VALUES (?, ?, ?, ?)").run(list, text, next, now);
-		return { item: this.get(lastInsertRowid), added: true };
+		return this.tx(() => {
+			const existing = this.findOpen(list, text);
+			if (existing) return { item: existing, added: false };
+			const { lastInsertRowid } = this.db.prepare("INSERT INTO todo_items (list, content, position, created_at) VALUES (?, ?, ?, ?)").run(list, text, this.nextPosition(list), now);
+			return { item: this.get(lastInsertRowid), added: true };
+		});
 	}
 
 	setDone (id, done, now = Date.now()) {
@@ -81,18 +116,31 @@ class TodoStore {
 		if (!item) throw new Error("Ieraksts nav atrasts.");
 		if (done) {
 			this.db.prepare("UPDATE todo_items SET done = 1, done_at = ? WHERE id = ?").run(now, item.id);
-		} else {
-			// Atjaunotais ieraksts atgriežas saraksta beigās.
-			const { next } = this.db.prepare("SELECT COALESCE(MAX(position), 0) + 1 AS next FROM todo_items WHERE list = ?").get(item.list);
-			this.db.prepare("UPDATE todo_items SET done = 0, done_at = NULL, position = ? WHERE id = ?").run(next, item.id);
+			return this.get(item.id);
 		}
-		return this.get(item.id);
+		if (!item.done) return item;
+		return this.tx(() => {
+			// Tāds pats ieraksts jau atkal ir sarakstā -> atsauktais saplūst ar to.
+			const twin = this.findOpen(item.list, item.content);
+			if (twin) {
+				this.db.prepare("DELETE FROM todo_items WHERE id = ?").run(item.id);
+				return twin;
+			}
+			// Atjaunotais ieraksts atgriežas saraksta beigās.
+			this.db.prepare("UPDATE todo_items SET done = 0, done_at = NULL, position = ? WHERE id = ?").run(this.nextPosition(item.list), item.id);
+			return this.get(item.id);
+		});
 	}
 
 	rename (id, content) {
 		const item = this.get(id);
 		if (!item) throw new Error("Ieraksts nav atrasts.");
-		this.db.prepare("UPDATE todo_items SET content = ? WHERE id = ?").run(TodoStore.cleanContent(content), item.id);
+		const text = TodoStore.cleanContent(content);
+		if (!item.done) {
+			const twin = this.findOpen(item.list, text);
+			if (twin && twin.id !== item.id) throw new Error("Tāds ieraksts sarakstā jau ir.");
+		}
+		this.db.prepare("UPDATE todo_items SET content = ? WHERE id = ?").run(text, item.id);
 		return this.get(item.id);
 	}
 
@@ -102,22 +150,16 @@ class TodoStore {
 
 	// Pārbīda nepabeigtu ierakstu par vienu vietu uz augšu (-1) vai leju (+1).
 	move (id, direction) {
+		if (direction !== -1 && direction !== 1) throw new Error("Nepareizs virziens (jābūt -1 vai 1).");
 		const item = this.get(id);
 		if (!item || item.done) throw new Error("Ieraksts nav atrasts.");
 		const items = this.open(item.list);
 		const i = items.findIndex((x) => x.id === item.id);
-		const j = i + (direction < 0 ? -1 : 1);
+		const j = i + direction;
 		if (j < 0 || j >= items.length) return false;
 		[items[i], items[j]] = [items[j], items[i]];
 		const update = this.db.prepare("UPDATE todo_items SET position = ? WHERE id = ?");
-		this.db.exec("BEGIN");
-		try {
-			items.forEach((x, k) => update.run(k + 1, x.id));
-			this.db.exec("COMMIT");
-		} catch (error) {
-			this.db.exec("ROLLBACK");
-			throw error;
-		}
+		this.tx(() => items.forEach((x, k) => update.run(k + 1, x.id)));
 		return true;
 	}
 

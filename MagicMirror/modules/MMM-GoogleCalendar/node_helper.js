@@ -35,24 +35,12 @@ const os = require("node:os");
 const path = require("node:path");
 const express = require("express");
 const ical = require("node-ical");
+const phoneAuth = require("../../lib/phone-auth");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const DATA_DIR = path.join(ROOT, "data");
 const TOKEN_FILE = path.join(DATA_DIR, "google-token.json");
 const LEGACY_TOKEN_FILE = path.join(__dirname, "token.json");
-
-// QR kods telefona lapai — bibliotēka jau ir MMM-Remote-Control atkarībās.
-// Ja tās nav, spogulis rāda tikai adresi.
-function loadQrCode () {
-	for (const id of ["qrcode", path.join(ROOT, "modules", "MMM-Remote-Control", "node_modules", "qrcode")]) {
-		try {
-			return require(id);
-		} catch (error) {
-			// mēģina nākamo
-		}
-	}
-	return null;
-}
 
 function loadOAuthClient () {
 	const root = path.resolve(__dirname, "..", "..");
@@ -160,6 +148,8 @@ module.exports = NodeHelper.create({
 		this.pairingInfo = null; // tas pats, kas GCAL_PAIRING_CODE — telefona lapai
 		this.status = "starting"; // starting | no_client | pairing | connected
 		this.registerRoutes();
+		// Izrakstoties telefoni aizmirsti un kods nomainīts -> jauns QR kods spogulī.
+		phoneAuth.on("reset", () => this.sendPhoneLink());
 	},
 
 	socketNotificationReceived (notification, payload) {
@@ -523,19 +513,9 @@ module.exports = NodeHelper.create({
 	},
 
 	// Adrese + QR kods MMM-CalendarAgenda lapai (lai telefonā pietiek noskenēt).
-	async sendPhoneLink () {
-		const url = this.phoneUrls()[0];
-		let qrSvg = null;
-		const qr = loadQrCode();
-		if (qr) {
-			try {
-				// Melns uz balta (nevis inversais) — to nolasa visas telefonu kameras.
-				qrSvg = await qr.toString(url, { type: "svg", margin: 2 });
-			} catch (err) {
-				Log.warn(`[MMM-GoogleCalendar] neizdevās izveidot QR kodu: ${err.message}`);
-			}
-		}
-		this.sendSocketNotification("GCAL_PHONE_LINK", { url, qrSvg });
+	// QR kods ved caur /pair (pieslēdz telefonu) — to redz tikai spoguļa paša ekrāns.
+	sendPhoneLink () {
+		return phoneAuth.sendPhoneLink(this, "GCAL_PHONE_LINK", this.phoneUrls()[0]);
 	},
 
 	phoneState () {
@@ -617,7 +597,7 @@ module.exports = NodeHelper.create({
 	},
 
 	// Dzēst drīkst tikai no spoguļa pievienotos notikumus — pārējie ir cilvēka
-	// Google kalendārā, un lapai nav paroles (to sargā tikai ipWhitelist).
+	// Google kalendārā (lapu var lietot jebkurš pieslēgts telefons, ne tikai īpašnieks).
 	async deleteEvent (id) {
 		if (this.status !== "connected") throw new Error("Kalendārs vēl nav pieslēgts.");
 		if (typeof id !== "string" || !/^[a-zA-Z0-9_]+$/.test(id)) throw new Error("Nepareizs notikums.");
@@ -664,7 +644,11 @@ module.exports = NodeHelper.create({
 
 	registerRoutes () {
 		const app = this.expressApp;
-		// Tikai application/json (tāpat kā /routines): svešas lapas bez CORS šādu POST nevar nosūtīt.
+		// Kas drīkst: tikai pieslēgts telefons (vai pats Pi) — skat. lib/phone-auth.js.
+		phoneAuth.install(app);
+		const guard = phoneAuth.guard();
+		// Tikai application/json: pārlūks šādu POST no citas vietnes bez CORS atļaujas
+		// nesūtīs. Tā nav autentifikācija — to dara `guard`.
 		const parse = express.json({ limit: "10kb" });
 		const json = (req, res, next) => {
 			if (!req.is("application/json")) return res.status(415).json({ error: "Vajag Content-Type: application/json" });
@@ -679,22 +663,19 @@ module.exports = NodeHelper.create({
 			}
 		};
 
-		app.get("/calendar", (req, res) => {
-			res.set("Cache-Control", "no-cache");
-			res.sendFile(path.join(__dirname, "public", "index.html"));
-		});
-		app.get("/calendar/api/state", (req, res) => res.json(this.phoneState()));
-		app.post("/calendar/api/events", json, action((body) => this.addEvent(body)));
-		app.post("/calendar/api/delete", json, action((body) => this.deleteEvent(body.id)));
+		app.get("/calendar", phoneAuth.page(path.join(__dirname, "public", "index.html")));
+		app.get("/calendar/api/state", guard, (req, res) => res.json(this.phoneState()));
+		app.post("/calendar/api/events", guard, json, action((body) => this.addEvent(body)));
+		app.post("/calendar/api/delete", guard, json, action((body) => this.deleteEvent(body.id)));
 		// beginPairing ir asinhrons — pagaida, lai atbildē jau ir kods.
 		const waitForPairing = async () => {
 			for (let i = 0; i < 20 && this.status !== "pairing"; i++) await new Promise((r) => setTimeout(r, 100));
 		};
-		app.post("/calendar/api/reconnect", json, action(async () => {
+		app.post("/calendar/api/reconnect", guard, json, action(async () => {
 			this.reconnect();
 			await waitForPairing();
 		}));
-		app.post("/calendar/api/signout", json, action(async () => {
+		app.post("/calendar/api/signout", guard, json, action(async () => {
 			await this.signOut();
 			await waitForPairing();
 		}));

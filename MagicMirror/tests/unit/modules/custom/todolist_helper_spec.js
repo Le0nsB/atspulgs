@@ -1,7 +1,10 @@
 /* Vienībtesti MMM-TodoList: SQLite glabātuve (atmiņā), ierakstu meklēšana
  * pēc teiktā nosaukuma, balss komandas un telefona lapas API. */
+const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const NodeModule = require("node:module");
+const { DatabaseSync } = require("node:sqlite");
 
 const HELPER_PATH = path.resolve(__dirname, "../../../../modules/MMM-TodoList/node_helper.js");
 const { TodoStore, DONE_KEEP_MS } = require(path.resolve(__dirname, "../../../../modules/MMM-TodoList/db.js"));
@@ -99,6 +102,61 @@ describe("MMM-TodoList TodoStore", () => {
 		store.setDone(fresh.id, true, now);
 		expect(store.purgeOldDone(now)).toBe(1);
 		expect(store.done("shopping").map((i) => i.content)).toEqual(["Jauns"]);
+	});
+
+	it("move pieņem tikai -1 vai 1 (ne 0, 100 vai NaN)", () => {
+		store.add("tasks", "A");
+		const b = store.add("tasks", "B").item;
+		for (const bad of [0, 100, -2, Number.NaN, Number("abc")]) {
+			expect(() => store.move(b.id, bad)).toThrow("Nepareizs virziens");
+		}
+		expect(store.open("tasks").map((i) => i.content)).toEqual(["A", "B"]);
+	});
+
+	it("rename nevar izveidot dublikātu nepabeigtajos (reģistrs neskaitās)", () => {
+		store.add("shopping", "Piens");
+		const b = store.add("shopping", "Maize").item;
+		expect(() => store.rename(b.id, "piens")).toThrow("jau ir");
+		expect(store.get(b.id).content).toBe("Maize");
+		// Tas pats ieraksts ar citu reģistru — atļauts.
+		expect(store.rename(b.id, "MAIZE").content).toBe("MAIZE");
+	});
+
+	it("dublikātu nepieļauj pati datubāze (unikāls indekss), ne tikai add()", () => {
+		store.add("shopping", "Piens");
+		const insert = store.db.prepare("INSERT INTO todo_items (list, content, position, created_at) VALUES ('shopping', 'PIENS', 9, 0)");
+		expect(() => insert.run()).toThrow(/UNIQUE/);
+		// Citā sarakstā vai atzīmētam — drīkst.
+		store.add("tasks", "Piens");
+		const done = store.add("shopping", "Maize").item;
+		store.setDone(done.id, true);
+		expect(store.add("shopping", "Maize").added).toBe(true);
+	});
+
+	it("atzīmētā atjaunošana saplūst ar tādu pašu nepabeigtu ierakstu", () => {
+		const a = store.add("shopping", "Piens").item;
+		store.setDone(a.id, true);
+		const b = store.add("shopping", "Piens").item;
+		expect(store.setDone(a.id, false).id).toBe(b.id);
+		expect(store.open("shopping").map((i) => i.id)).toEqual([b.id]);
+		expect(store.get(a.id)).toBeNull();
+	});
+
+	it("atverot vecu datubāzi, dzēš agrāk radušos dublikātus (paturot vecāko)", () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "todo-"));
+		const file = path.join(dir, "todo.db");
+		try {
+			new TodoStore(file).close();
+			const raw = new DatabaseSync(file);
+			raw.exec("DROP INDEX todo_items_open_unique");
+			raw.exec("INSERT INTO todo_items (list, content, position, created_at) VALUES ('tasks', 'Veļa', 1, 0), ('tasks', 'veļa', 2, 0), ('tasks', 'Trauki', 3, 0)");
+			raw.close();
+			const reopened = new TodoStore(file);
+			expect(reopened.open("tasks").map((i) => i.content)).toEqual(["Veļa", "Trauki"]);
+			reopened.close();
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
 	});
 });
 
@@ -233,8 +291,28 @@ describe("MMM-TodoList node_helper", () => {
 			expect(bad.payload.error).toContain("Ieraksti");
 		});
 
-		it("POST pieņem tikai JSON (json starpprogramma pirms darbības)", () => {
-			expect(routes["POST /todo/api/add"]).toHaveLength(2);
+		it("POST: vispirms pieslēgta telefona pārbaude, tad tikai JSON, tad darbība", () => {
+			expect(routes["POST /todo/api/add"]).toHaveLength(3);
+			expect(routes["POST /todo/api/add"][1].name).toBe("json");
+		});
+
+		it("nepieslēgts telefons saņem 401 un nekas nemainās", () => {
+			for (const key of Object.keys(routes).filter((k) => k.includes("/todo/api/"))) {
+				const [guard] = routes[key];
+				const res = { status: vi.fn(function () { return this; }), json: vi.fn() };
+				const next = vi.fn();
+				guard({ headers: { host: "localhost:8080" }, socket: { remoteAddress: "192.168.1.20" } }, res, next);
+				expect({ key, called: next.mock.calls.length }).toEqual({ key, called: 0 });
+				expect(res.status).toHaveBeenCalledWith(401);
+			}
+		});
+
+		it("move ar nederīgu virzienu -> 400", () => {
+			helper.store.add("tasks", "A");
+			const b = helper.store.add("tasks", "B").item;
+			expect(call("POST /todo/api/move", { id: b.id, direction: "abc" }).status).toBe(400);
+			expect(call("POST /todo/api/move", { id: b.id, direction: 0 }).status).toBe(400);
+			expect(call("POST /todo/api/move", { id: b.id, direction: -1 }).status).toBe(200);
 		});
 	});
 });
