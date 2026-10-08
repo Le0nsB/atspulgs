@@ -26,6 +26,7 @@ Module.register("MMM-GestureNav", {
 		cameraHeight: 480,
 		deviceId: null, // konkrētas kameras id (navigator.mediaDevices.enumerateDevices)
 		deviceLabel: null, // ... vai daļa no kameras nosaukuma (piem. "C270") — der uz jebkuras ierīces; deviceId to pārspēj
+		runOn: "electron", // "electron" = tikai spoguļa logs; "all" = katrs klients (piem. `npm run server` + pārlūks)
 
 		// --- apstrāde ---
 		processingFps: 15, // cik reižu sekundē analizēt kadru (mazāk = mazāk CPU; Pi5 domāts ~10-15)
@@ -86,6 +87,14 @@ Module.register("MMM-GestureNav", {
 
 	start () {
 		this.status = "startē…";
+		// Kamera — tikai spoguļa Electron logā (tāpat kā MMM-Radio `playOn`). Citādi MacBook/telefons,
+		// kas atvēris to pašu lapu (piem. ?voice=listen), ar SAVU kameru pārslēgtu spoguļa lapas un vadītu mūziku.
+		this.active = this.config.runOn === "all"
+			|| (typeof navigator !== "undefined" && /Electron/i.test(navigator.userAgent));
+		if (!this.active) {
+			Log.info(`${this.name}: nav spoguļa Electron logs — kamera netiek ieslēgta (runOn: "all", lai ieslēgtu).`);
+			return;
+		}
 		this.lastFireAt = 0;
 		this.gestureBucket = -1; // pašreiz noturētais žests (0..3, 5=plauksta, 6=vidējais pirksts, -1=nav)
 		this.gestureSince = 0; // kopš kura brīža bakets ir nemainīgs
@@ -513,6 +522,7 @@ Module.register("MMM-GestureNav", {
 
 	getDom () {
 		const wrapper = document.createElement("div");
+		if (this.active === false) return wrapper;
 		wrapper.className = "mmm-gesturenav";
 
 		if (!this.config.showPreview) {

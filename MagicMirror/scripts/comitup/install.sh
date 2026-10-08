@@ -59,14 +59,21 @@ apt-get update
 apt-get install -y comitup
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-chmod +x "$SCRIPT_DIR/wifi-state-callback.sh"
+
+# comitup runs external_callback as the OWNER of the script file. The copy in
+# this repo belongs to the normal user, who can neither write /run nor read the
+# root-only /etc/comitup.conf (the hotspot password), so the mirror would never
+# see the hotspot. Install a root-owned copy instead (re-run this script after
+# changing wifi-state-callback.sh).
+CALLBACK=/usr/local/bin/mm-wifi-state-callback
+install -o root -g root -m 755 "$SCRIPT_DIR/wifi-state-callback.sh" "$CALLBACK"
 
 if [[ -f "$CONF" ]]; then
   cp "$CONF" "$CONF.bak"
   chmod 600 "$CONF.bak"
 fi
 # awk + ENVIRON, not sed: the password may contain characters sed would treat specially.
-sed "s#__CALLBACK_PATH__#$SCRIPT_DIR/wifi-state-callback.sh#" "$SCRIPT_DIR/comitup.conf" \
+sed "s#__CALLBACK_PATH__#$CALLBACK#" "$SCRIPT_DIR/comitup.conf" \
   | PW="$PASSWORD" awk '/^ap_password:/ { print "ap_password: " ENVIRON["PW"]; next } { print }' \
   > "$CONF"
 chmod 600 "$CONF"

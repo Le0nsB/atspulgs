@@ -5,6 +5,10 @@
 # that MMM-WifiSetup's node_helper polls, so the mirror screen can show setup
 # instructions and a WiFi QR code.
 #
+# install.sh copies this script to /usr/local/bin/mm-wifi-state-callback,
+# owned by root: comitup runs the callback as the file's owner, and only root
+# can write /run and read the password from /etc/comitup.conf.
+#
 # The file is world-readable (MagicMirror doesn't run as root) and holds the
 # hotspot password only while the hotspot is up. That's fine: the same
 # password is on the mirror screen at that moment, and /run is wiped on reboot.

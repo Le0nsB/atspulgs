@@ -22,6 +22,7 @@ Module.register("MMM-FaceRecognition", {
 		cameraHeight: 240,
 		deviceId: null, // konkrētas kameras id (navigator.mediaDevices.enumerateDevices)
 		deviceLabel: null, // ... vai daļa no kameras nosaukuma (piem. "C270") — der uz jebkuras ierīces; deviceId to pārspēj
+		runOn: "electron", // "electron" = tikai spoguļa logs; "all" = katrs klients (piem. `npm run server` + pārlūks)
 
 		// --- apstrāde ---
 		// Klātbūtnei nevajag augstu FPS — taupa CPU/RAM uz Pi 5 (2 GB RAM).
@@ -57,6 +58,14 @@ Module.register("MMM-FaceRecognition", {
 
 	start () {
 		this.status = "startē…";
+		// Kamera — tikai spoguļa Electron logā (tāpat kā MMM-Radio `playOn`). Citādi MacBook/telefons,
+		// kas atvēris to pašu lapu (piem. ?voice=listen), ar SAVU kameru izslēgtu Pi ekrānu (MONITOROFF), kad tā priekšā neviena nav.
+		this.active = this.config.runOn === "all"
+			|| (typeof navigator !== "undefined" && /Electron/i.test(navigator.userAgent));
+		if (!this.active) {
+			Log.info(`${this.name}: nav spoguļa Electron logs — kamera netiek ieslēgta (runOn: "all", lai ieslēgtu).`);
+			return;
+		}
 		// Pieņemam, ka sākumā ekrāns jau ir ieslēgts (parasti tā arī ir) —
 		// tā pirmā konstatētā pāreja notiek tikai uz "prom", ne lieku "klāt".
 		this.state = "present";
@@ -342,6 +351,7 @@ Module.register("MMM-FaceRecognition", {
 
 	getDom () {
 		const wrapper = document.createElement("div");
+		if (this.active === false) return wrapper;
 		wrapper.className = "mmm-facerecognition";
 
 		if (!this.config.showPreview) {

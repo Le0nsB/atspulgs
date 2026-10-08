@@ -83,6 +83,7 @@ palaišanas reizē (macOS: *System Settings → Privacy & Security → Camera*).
 | `cameraWidth` / `cameraHeight` | `320` / `240` | pieprasītā kameras izšķirtspēja (zemāka nekā GestureNav — klātbūtnei nevajag daudz) |
 | `deviceLabel` | `null` | daļa no kameras nosaukuma (reģistrnejutīgi), piem. `"C270"` — **ieteicamais veids**, jo der gan uz Mac, gan uz Pi. Ja tāda nav, izmanto noklusējuma kameru (un brīdina konsolē ar pieejamo kameru sarakstu) |
 | `deviceId` | `null` | konkrētas kameras id (`navigator.mediaDevices.enumerateDevices()`); ir citāds katrā ierīcē/profilā un pārspēj `deviceLabel` |
+| `runOn` | `"electron"` | kur ieslēgt kameru: `"electron"` — tikai spoguļa Electron logā (citādi cita ierīce, kas atvērusi spoguļa lapu, ar savu kameru izslēgtu Pi ekrānu); `"all"` — katrā klientā (piem. `npm run server` + pārlūks) |
 | `processingFps` | `2` | kadru analīzes biežums (klātbūtnei pietiek ar zemu — taupa CPU/RAM uz Pi 5) |
 | `analysisWidth` | `192` | uz cik px platu samazina kadru pirms analīzes |
 | `delegate` | `"CPU"` | `"CPU"` vai `"GPU"` (inference). Abiem vajag WebGL. |

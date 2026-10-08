@@ -9,8 +9,11 @@ Modulis pats parādās un pazūd atkarībā no stāvokļa; parasti nekas
 
 ## Kā tas strādā
 
-1. `scripts/comitup/install.sh` uzstāda **comitup** un konfigurē tā
-   `external_callback` uz `scripts/comitup/wifi-state-callback.sh`.
+1. `scripts/comitup/install.sh` uzstāda **comitup**, nokopē
+   `scripts/comitup/wifi-state-callback.sh` uz `/usr/local/bin/mm-wifi-state-callback`
+   (pieder root — comitup skriptu palaiž kā faila īpašnieku, un tikai root var
+   rakstīt `/run` un lasīt paroli no `/etc/comitup.conf`) un konfigurē to kā
+   comitup `external_callback`. Pēc skripta izmaiņām `install.sh` jāpalaiž vēlreiz.
 2. Comitup izsauc šo skriptu ar `HOTSPOT` / `CONNECTING` / `CONNECTED`
    ikreiz, kad mainās WiFi stāvoklis. Skripts ieraksta stāvokli (un
    `HOTSPOT` gadījumā — pašu apraidīto tīkla nosaukumu un paroli no

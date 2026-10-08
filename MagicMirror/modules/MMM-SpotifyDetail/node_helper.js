@@ -137,7 +137,32 @@ module.exports = NodeHelper.create({
 		const data = await res.json();
 		this.accessToken = data.access_token;
 		this.accessTokenExpiry = Date.now() + (data.expires_in || 3600) * 1000;
+		if (data.refresh_token && data.refresh_token !== this.config.refreshToken) this.saveRefreshToken(data.refresh_token);
 		return this.accessToken;
+	},
+
+	// Spotify dažreiz atjaunojot iedod JAUNU refresh token — vecais tad var vairs nederēt,
+	// tāpēc saglabājam to data/spotify.json (arī, ja atslēgas nāca no secrets.js).
+	// MMM-SpotifyNowPlaying failu vēro un paņem jauno tokenu.
+	saveRefreshToken (refreshToken) {
+		// Vispirms atmiņā, lai fs.watchFile -> reloadCredentials() to uzskata par "to pašu".
+		this.config.refreshToken = refreshToken;
+		const { clientId, clientSecret } = this.config;
+		try {
+			let d = {};
+			try {
+				d = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+			} catch {
+				// nav faila — izveidosim
+			}
+			// Telefonā saglabāta CITA lietotne (vēl nepieslēgta) — to nepārrakstām.
+			if (d.clientId && d.clientId !== clientId) return;
+			fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+			fs.writeFileSync(DATA_FILE, JSON.stringify({ ...d, clientId, clientSecret, refreshToken }, null, "\t"), { mode: 0o600 });
+			Log.info("[MMM-SpotifyDetail] Spotify iedeva jaunu refresh token — saglabāts");
+		} catch (error) {
+			Log.error(`[MMM-SpotifyDetail] neizdevās saglabāt jauno refresh token: ${error.message}`);
+		}
 	},
 
 	trackFromItem (item) {
